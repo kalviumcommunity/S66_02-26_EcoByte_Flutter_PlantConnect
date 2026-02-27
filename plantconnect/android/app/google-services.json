@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "82423488286",
+    "project_id": "plantconnect-7dd0c",
+    "storage_bucket": "plantconnect-7dd0c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:82423488286:android:7df6c2049472000deeb30f",
+        "android_client_info": {
+          "package_name": "com.example.plantconnect"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCXHuAAX-lzYGu8HjhremjslJHNAN3CK4g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

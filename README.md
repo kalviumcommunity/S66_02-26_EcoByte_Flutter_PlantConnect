@@ -722,3 +722,460 @@ This README reflects our design decisions, folder organization, naming conventio
 
 ---
 
+# 🔐 Firebase Integration & Backend Architecture
+
+## 📋 Firebase Setup Process
+
+### 1️⃣ **Configuration Files Added**
+
+The following Firebase configuration files have been added to the project:
+
+- **Android**: `android/app/google-services.json`
+- **iOS**: `ios/Runner/GoogleService-Info.plist`
+
+These files are automatically generated through FlutterFire CLI and contain:
+- Project ID
+- API Keys
+- Firebase service endpoints
+- App-specific credentials
+
+### 2️⃣ **Dependencies Added to pubspec.yaml**
+
+```yaml
+dependencies:
+  firebase_core: ^3.0.0      # Core Firebase functionality
+  firebase_auth: ^5.0.0      # Authentication
+  cloud_firestore: ^5.0.0    # Real-time database
+```
+
+### 3️⃣ **Firebase Initialization in main.dart**
+
+```dart
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(const MyApp());
+}
+```
+
+---
+
+## 🔑 Authentication Implementation
+
+### **AuthService** (`lib/services/auth_service.dart`)
+
+Complete authentication service providing:
+
+#### **Sign Up Function**
+```dart
+Future<User?> signUp(String email, String password) async {
+  try {
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    return credential.user;
+  } on FirebaseAuthException catch (e) {
+    print('SignUp Error: ${e.message}');
+    rethrow;
+  }
+}
+```
+
+#### **Login Function**
+```dart
+Future<User?> login(String email, String password) async {
+  try {
+    final credential = await _auth.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    return credential.user;
+  } on FirebaseAuthException catch (e) {
+    print('Login Error: ${e.message}');
+    rethrow;
+  }
+}
+```
+
+#### **Logout Function**
+```dart
+Future<void> logout() async {
+  try {
+    await _auth.signOut();
+  } catch (e) {
+    print('Logout Error: $e');
+    rethrow;
+  }
+}
+```
+
+#### **Stream Authentication State**
+```dart
+Stream<User?> get authStateChanges => _auth.authStateChanges();
+```
+
+### **Authentication Flows**
+
+#### **Sign Up Screen** (`lib/screens/signup_screen.dart`)
+- Form with fields: Full Name, Email, Password
+- Password visibility toggle
+- Error handling and validation
+- Stores user data in Firestore upon registration
+- Navigation to home screen on success
+
+#### **Login Screen** (`lib/screens/login_screen.dart`)
+- Email and password input fields
+- Password visibility toggle
+- Error message display
+- Forgot password option (placeholder for future implementation)
+- Navigation to home screen on successful login
+
+---
+
+## 💾 Firestore Database Integration
+
+### **FirestoreService** (`lib/services/firestore_service.dart`)
+
+Comprehensive CRUD operations for real-time data management:
+
+### **CREATE Operations**
+
+```dart
+// Add user data to Firestore
+Future<void> addUserData(String uid, Map<String, dynamic> data) async {
+  await _db.collection('users').doc(uid).set(data);
+}
+
+// Add document with auto-generated ID
+Future<String?> addDocument(String collection, Map<String, dynamic> data) async {
+  final docRef = await _db.collection(collection).add({
+    ...data,
+    'createdAt': FieldValue.serverTimestamp(),
+  });
+  return docRef.id;
+}
+```
+
+### **READ Operations**
+
+```dart
+// Get user data once
+Future<Map<String, dynamic>?> getUserData(String uid) async {
+  final doc = await _db.collection('users').doc(uid).get();
+  return doc.data();
+}
+
+// Real-time stream of user documents
+Stream<QuerySnapshot> getUserDocumentsStream(
+  String collection, 
+  String uid
+) {
+  return _db
+      .collection(collection)
+      .where('uid', isEqualTo: uid)
+      .orderBy('createdAt', descending: true)
+      .snapshots();
+}
+
+// Real-time stream of single document
+Stream<DocumentSnapshot> getDocumentStream(
+  String collection, 
+  String docId
+) {
+  return _db.collection(collection).doc(docId).snapshots();
+}
+```
+
+### **UPDATE Operations**
+
+```dart
+// Update specific fields in a document
+Future<void> updateDocument(
+  String collection,
+  String docId,
+  Map<String, dynamic> data,
+) async {
+  await _db.collection(collection).doc(docId).update({
+    ...data,
+    'updatedAt': FieldValue.serverTimestamp(),
+  });
+}
+
+// Update user data
+Future<void> updateUserData(String uid, Map<String, dynamic> data) async {
+  await _db.collection('users').doc(uid).update({
+    ...data,
+    'updatedAt': FieldValue.serverTimestamp(),
+  });
+}
+```
+
+### **DELETE Operations**
+
+```dart
+// Delete a document
+Future<void> deleteDocument(String collection, String docId) async {
+  await _db.collection(collection).doc(docId).delete();
+}
+
+// Delete user data
+Future<void> deleteUserData(String uid) async {
+  await _db.collection('users').doc(uid).delete();
+}
+```
+
+---
+
+### **HomeScreen** (`lib/screens/home_screen.dart`)
+
+User dashboard with complete CRUD functionality:
+
+#### **Features**
+- ✅ Welcome message with user email
+- ✅ Real-time notes list from Firestore
+- ✅ Create new notes via dialog
+- ✅ Edit existing notes
+- ✅ Delete notes with confirmation
+- ✅ Logout functionality
+- ✅ Empty state when no notes exist
+
+#### **Real-Time Data Binding**
+
+```dart
+StreamBuilder<QuerySnapshot>(
+  stream: _firestoreService.getUserDocumentsStream('notes', user?.uid ?? ''),
+  builder: (context, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final notes = snapshot.data?.docs ?? [];
+
+    return ListView.builder(
+      itemCount: notes.length,
+      itemBuilder: (context, index) {
+        final note = notes[index];
+        return NoteCard(note: note);
+      },
+    );
+  },
+)
+```
+
+---
+
+## 🧪 Testing & Validation
+
+### **Manual Testing Checklist**
+
+#### **Authentication Testing**
+
+- [x] User can sign up with email and password
+- [x] New user data is stored in Firestore `users` collection
+- [x] User can login with registered credentials
+- [x] User cannot login with incorrect password
+- [x] User receives appropriate error messages
+- [x] User can logout successfully
+- [x] Auth state changes persist across app restarts
+
+#### **Firestore CRUD Testing**
+
+**Create:**
+- [x] User can add notes to Firestore
+- [x] Each note includes uid, title, description, and timestamps
+- [x] Notes appear instantly in the UI (real-time update)
+
+**Read:**
+- [x] All user notes load on home screen
+- [x] Notes display in descending order (newest first)
+- [x] Real-time updates when notes change
+
+**Update:**
+- [x] User can edit note title and description
+- [x] Updated timestamp is recorded in Firestore
+- [x] Changes reflect immediately in the UI
+
+**Delete:**
+- [x] User can delete notes
+- [x] Deleted notes disappear from UI instantly
+- [x] Document is removed from Firestore collection
+
+### **Firebase Console Verification**
+
+The following should be visible in [Firebase Console](https://console.firebase.google.com/):
+
+#### **Authentication Tab**
+- User account created during signup
+- Login credentials verified
+- User UID assigned
+
+#### **Firestore Database**
+- `users` collection with user documents
+- `notes` collection with user-specific notes
+- Timestamps auto-generated by `FieldValue.serverTimestamp()`
+
+---
+
+## 📱 App Screens Overview
+
+### **1. Login Screen**
+- Entry point for existing users
+- Email and password input
+- Navigation to signup
+- Error message display
+
+### **2. Sign Up Screen**
+- Registration for new users
+- Full name, email, password input
+- Creates user in Firebase Auth
+- Stores user profile in Firestore
+- Auto-login after successful signup
+
+### **3. Home Screen (User Dashboard)**
+- Displays logged-in user's name and email
+- Lists all user's notes
+- Add new note button (FAB)
+- Edit and delete options per note
+- Logout button in AppBar
+
+---
+
+## 🏗 Data Model Structure
+
+### **Users Collection**
+```json
+{
+  "uid": "auto-generated-uid",
+  "name": "John Doe",
+  "email": "john@example.com",
+  "createdAt": "2026-02-27T10:30:00Z",
+  "updatedAt": "2026-02-27T10:30:00Z"
+}
+```
+
+### **Notes Collection**
+```json
+{
+  "uid": "references-user-uid",
+  "title": "Plant Watering Tips",
+  "description": "Water plants every 2-3 days...",
+  "createdAt": "2026-02-27T11:00:00Z",
+  "updatedAt": "2026-02-27T11:00:00Z"
+}
+```
+
+---
+
+## 🔒 Security Rules (Recommended)
+
+Add the following Firestore security rules in Firebase Console:
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can only read/write their own documents
+    match /users/{uid} {
+      allow read, write: if request.auth.uid == uid;
+    }
+    
+    // Users can only access their own notes
+    match /notes/{document=**} {
+      allow read, write: if request.auth.uid == resource.data.uid;
+      allow create: if request.auth.uid == request.resource.data.uid;
+    }
+  }
+}
+```
+
+---
+
+## 🔥 Architecture Benefits of Firebase Integration
+
+### **1. Scalability**
+- ✅ Firebase handles infrastructure automatically
+- ✅ Scales from 0 to millions of users
+- ✅ No server management required
+
+### **2. Real-Time Collaboration**
+- ✅ Multiple users see updates instantly
+- ✅ StreamBuilder listens to database changes
+- ✅ Offline support available with persistence
+
+### **3. Security**
+- ✅ Built-in authentication
+- ✅ Credentials never stored locally
+- ✅ Firestore security rules for data access control
+
+### **4. Development Speed**
+- ✅ No backend code needed
+- ✅ FlutterFire integration is seamless
+- ✅ Reduce development time significantly
+
+### **5. Cost Efficiency**
+- ✅ Pay only for data used
+- ✅ Free tier for development
+- ✅ Scales cost with usage
+
+---
+
+## 🚀 Future Firebase Features
+
+- [ ] **Cloud Storage**: Store plant images and user profile pictures
+- [ ] **Cloud Functions**: Server-side logic for watering reminders
+- [ ] **Anonymous Auth**: Guest mode for app preview
+- [ ] **Social Auth**: Google and Apple sign-in
+- [ ] **Real-Time Notifications**: Push notifications for reminders
+- [ ] **Firestore Offline Persistence**: Work offline, sync when online
+- [ ] **File Uploads**: User-generated content management
+
+---
+
+## 💡 Reflection: Challenges & Solutions
+
+### **Challenge 1: Real-Time Data Synchronization**
+**Problem:** Keeping UI in sync with Firestore changes in real-time.
+
+**Solution:** Used `StreamBuilder` with `FirebaseAuth.authStateChanges` and `Firestore.snapshots()` to maintain two-way binding between UI and database. This ensures instant updates when data changes.
+
+### **Challenge 2: User-Specific Data Filtering**
+**Problem:** Preventing users from seeing other users' data.
+
+**Solution:** Implemented UID-based filtering in Firestore queries. Each user's notes are queried with `.where('uid', isEqualTo: uid)`, and security rules enforce this at the database level.
+
+### **Challenge 3: Error Handling**
+**Problem:** Managing various Firebase errors (auth failures, network issues, etc.).
+
+**Solution:** Wrapped all Firebase calls in try-catch blocks with specific `FirebaseAuthException` handling. Error messages displayed to users in snackbars and dialog boxes.
+
+### **Challenge 4: State Management with Authentication**
+**Problem:** Routing users based on auth state changes.
+
+**Solution:** Created `AuthWrapper` widget with `StreamBuilder` that listens to `authStateChanges`. Routes to `LoginScreen` if not authenticated, `HomeScreen` if authenticated.
+
+### **Challenge 5: Timestamp Management**
+**Problem:** Consistent timestamp handling across different devices.
+
+**Solution:** Used `FieldValue.serverTimestamp()` for all timestamps, ensuring server-side consistency rather than client-side times which might be incorrect.
+
+---
+
+## 📊 Performance Considerations
+
+### **Optimizations Implemented**
+- ✅ Efficient Firestore queries with `.where()` and `.orderBy()`
+- ✅ Stream subscriptions only for needed data
+- ✅ Pagination ready (can implement with `.limit()` and `.startAfter()`)
+- ✅ Indexed queries for fast lookups
+
+### **Best Practices Applied**
+- ✅ Minimal document reads (only when necessary)
+- ✅ Real-time updates via StreamBuilder (no polling)
+- ✅ Async/await for non-blocking operations
+- ✅ Error handling prevents app crashes
+
+---
+
