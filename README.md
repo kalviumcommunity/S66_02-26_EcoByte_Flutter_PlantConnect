@@ -482,42 +482,6 @@ The responsive design has been tested on:
 4. **Performance**: Efficient rendering with adaptive loading
 5. **Maintainability**: Centralized responsive logic in `responsive_utils.dart`
 6. **Accessibility**: Proper spacing and text sizing for readability on all devices
-
----
-
-## 🚀 Setup Verification
-
-This section documents the environment setup of the Flutter SDK and the successful run of the default Flutter counter app on an emulator or device.  It is intended to satisfy the Sprint‑2 *Flutter Environment Setup and First App Run* deliverable.
-
-### ✅ Steps Followed
-
-1. **Install Flutter SDK** – downloaded from https://flutter.dev and added `flutter/bin` to the `PATH` in `~/.zshrc` (or your shell profile).
-2. **Run `flutter doctor`** to validate the installation. Addressed any missing components.
-3. **Install IDE & Plugins** – Android Studio (or VS Code) with Flutter/Dart plugins.
-4. **Configure Emulator** – created an AVD via Android Studio’s AVD Manager (Pixel 6, Android 13+).
-5. **Create & run first app**:
-   ```bash
-   flutter create first_flutter_app
-   cd first_flutter_app
-   flutter run
-   ```
-   Observed the default counter app launching on the emulator.
-6. Captured screenshots of the `flutter doctor` output (all green checks) and the running app.
-
-> _Note_: Replace the placeholders below with your actual images and outputs when available.
-
-### 🖼 Screenshots
-
-**Flutter Doctor Output**
-
-![Flutter Doctor Output](path/to/flutter_doctor.png)
-
-**Running App on Emulator**
-
-![App Running](path/to/emulator_screenshot.png)
-
-### 📝 Reflection
-
 > _Write a short reflection about any challenges faced during installation and how this setup prepares you for building and testing real mobile apps. For example, configuring the Android toolchain and emulator, ensuring all dependencies are installed, etc._
 
 ---
