@@ -482,42 +482,6 @@ The responsive design has been tested on:
 4. **Performance**: Efficient rendering with adaptive loading
 5. **Maintainability**: Centralized responsive logic in `responsive_utils.dart`
 6. **Accessibility**: Proper spacing and text sizing for readability on all devices
-
----
-
-## 🚀 Setup Verification
-
-This section documents the environment setup of the Flutter SDK and the successful run of the default Flutter counter app on an emulator or device.  It is intended to satisfy the Sprint‑2 *Flutter Environment Setup and First App Run* deliverable.
-
-### ✅ Steps Followed
-
-1. **Install Flutter SDK** – downloaded from https://flutter.dev and added `flutter/bin` to the `PATH` in `~/.zshrc` (or your shell profile).
-2. **Run `flutter doctor`** to validate the installation. Addressed any missing components.
-3. **Install IDE & Plugins** – Android Studio (or VS Code) with Flutter/Dart plugins.
-4. **Configure Emulator** – created an AVD via Android Studio’s AVD Manager (Pixel 6, Android 13+).
-5. **Create & run first app**:
-   ```bash
-   flutter create first_flutter_app
-   cd first_flutter_app
-   flutter run
-   ```
-   Observed the default counter app launching on the emulator.
-6. Captured screenshots of the `flutter doctor` output (all green checks) and the running app.
-
-> _Note_: Replace the placeholders below with your actual images and outputs when available.
-
-### 🖼 Screenshots
-
-**Flutter Doctor Output**
-
-![Flutter Doctor Output](path/to/flutter_doctor.png)
-
-**Running App on Emulator**
-
-![App Running](path/to/emulator_screenshot.png)
-
-### 📝 Reflection
-
 > _Write a short reflection about any challenges faced during installation and how this setup prepares you for building and testing real mobile apps. For example, configuring the Android toolchain and emulator, ensuring all dependencies are installed, etc._
 
 ---
@@ -946,6 +910,45 @@ This structure allows easy integration of:
 * Payment integration
 * Analytics dashboard
 * Offline caching
+
+---
+
+## 🧩 Widget Tree & Reactive UI Demo
+
+A minimal Flutter application demonstrating a nested widget tree and reactive
+state updates lives in the `widget_tree_demo/` folder. Below is the hierarchy of
+the counter example shipped with that project:
+
+```
+MaterialApp
+ ┗ Scaffold
+    ┣ AppBar
+    ┗ Body
+       ┗ Center
+          ┗ Column
+             ┣ Text("You have pushed the button this many times:")
+             ┗ Text("\$_counter")
+    ┗ FloatingActionButton
+```
+
+Screenshots illustrating the reactive behavior:
+
+**Initial state**
+
+![Initial Counter](path/to/initial.png)
+
+**After tapping the button**
+
+![Updated Counter](path/to/updated.png)
+
+### Reflection
+
+The widget tree defines every UI element in a clear hierarchical manner, making
+it easy to reason about layout and performance. When `setState()` is called the
+framework rebuilds only the widgets that depend on the changing state; in this
+example only the counter text is rebuilt, not the surrounding scaffolding.
+This reactive model is more efficient than manually updating views because the
+framework handles diffing and minimizes redraws automatically.
 
 ---
 
