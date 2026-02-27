@@ -913,6 +913,45 @@ This structure allows easy integration of:
 
 ---
 
+## 🧩 Widget Tree & Reactive UI Demo
+
+A minimal Flutter application demonstrating a nested widget tree and reactive
+state updates lives in the `widget_tree_demo/` folder. Below is the hierarchy of
+the counter example shipped with that project:
+
+```
+MaterialApp
+ ┗ Scaffold
+    ┣ AppBar
+    ┗ Body
+       ┗ Center
+          ┗ Column
+             ┣ Text("You have pushed the button this many times:")
+             ┗ Text("\$_counter")
+    ┗ FloatingActionButton
+```
+
+Screenshots illustrating the reactive behavior:
+
+**Initial state**
+
+![Initial Counter](path/to/initial.png)
+
+**After tapping the button**
+
+![Updated Counter](path/to/updated.png)
+
+### Reflection
+
+The widget tree defines every UI element in a clear hierarchical manner, making
+it easy to reason about layout and performance. When `setState()` is called the
+framework rebuilds only the widgets that depend on the changing state; in this
+example only the counter text is rebuilt, not the surrounding scaffolding.
+This reactive model is more efficient than manually updating views because the
+framework handles diffing and minimizes redraws automatically.
+
+---
+
 # 📦 Build & Run
 
 ```bash
