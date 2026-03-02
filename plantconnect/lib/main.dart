@@ -7,6 +7,7 @@ import 'screens/stateless_stateful_demo.dart';
 import 'screens/navigation_demo_home_screen.dart';
 import 'screens/second_screen.dart';
 import 'screens/responsive_layout.dart';
+import 'screens/scrollable_views.dart';
 import 'services/auth_service.dart';
 import 'firebase_options.dart';
 
@@ -33,6 +34,7 @@ class MyApp extends StatelessWidget {
         '/navigation_demo': (_) => const NavigationDemoHomeScreen(),
         '/navigation_demo_second': (_) => const SecondScreen(),
         '/responsive_layout': (_) => const ResponsiveLayout(),
+        '/scrollable_views': (_) => const ScrollableViews(),
       },
       debugShowCheckedModeBanner: false,
     );
