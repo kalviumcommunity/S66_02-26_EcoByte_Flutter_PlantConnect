@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/stateless_stateful_demo.dart';
+import 'screens/navigation_demo_home_screen.dart';
+import 'screens/second_screen.dart';
 import 'services/auth_service.dart';
 import 'firebase_options.dart';
 
@@ -25,7 +27,11 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const AuthWrapper(),
-      routes: {'/stateless': (_) => const StatelessStatefulDemo()},
+      routes: {
+        '/stateless': (_) => const StatelessStatefulDemo(),
+        '/navigation_demo': (_) => const NavigationDemoHomeScreen(),
+        '/navigation_demo_second': (_) => const SecondScreen(),
+      },
       debugShowCheckedModeBanner: false,
     );
   }

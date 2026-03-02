@@ -991,7 +991,516 @@ This structure allows easy integration of:
 
 ---
 
-## 🧩 Widget Tree & Reactive UI Demo
+---
+
+# 🚀 Multi-Screen Navigation Demo
+
+## 📱 Understanding Multi-Screen Navigation in Flutter
+
+Most Flutter apps contain multiple screens (pages) that users navigate between — such as login → dashboard → settings. Flutter manages this navigation stack using the **Navigator** class, which provides several navigation functions:
+
+### **Navigation Methods**
+
+- **Navigator.push()** → Move to a new screen, adding it to the navigation stack
+- **Navigator.pop()** → Return to the previous screen, removing the current one from the stack
+- **Navigator.pushNamed()** → Navigate using named routes (recommended for larger apps)
+- **Navigator.popNamed()** → Navigate back using named routes
+
+### **How the Navigation Stack Works**
+
+```
+Initial State:        After push:           After pop:
+┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+│   Screen A  │      │   Screen B  │      │   Screen A  │
+│  (active)   │ ──→  │  (active)   │ ──→  │  (active)   │
+└─────────────┘      ├─────────────┤      └─────────────┘
+                     │   Screen A  │
+                     └─────────────┘
+```
+
+---
+
+## 📂 Navigation Demo File Structure
+
+The navigation demo consists of two main files in `lib/screens/`:
+
+```
+lib/
+├── screens/
+│   ├── navigation_demo_home_screen.dart  # First screen
+│   └── second_screen.dart                # Second screen
+```
+
+### **navigation_demo_home_screen.dart**
+
+The home screen demonstrates:
+- ✅ Welcome message with navigation explanation
+- ✅ Two navigation buttons with different approaches
+- ✅ Navigation without arguments
+- ✅ Navigation with arguments (passing data between screens)
+
+```dart
+import 'package:flutter/material.dart';
+
+class NavigationDemoHomeScreen extends StatelessWidget {
+  const NavigationDemoHomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Navigation Demo - Home'),
+        backgroundColor: Colors.green,
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'Welcome to Home Screen!',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(height: 40),
+            ElevatedButton(
+              onPressed: () {
+                // Basic navigation without arguments
+                Navigator.pushNamed(context, '/navigation_demo_second');
+              },
+              child: const Text('Go to Second Screen'),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                // Navigation with arguments
+                Navigator.pushNamed(
+                  context,
+                  '/navigation_demo_second',
+                  arguments: 'Hello from Home Screen! 👋',
+                );
+              },
+              child: const Text('Go to Second Screen with Message'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+### **second_screen.dart**
+
+The second screen demonstrates:
+- ✅ Receiving data from the previous screen
+- ✅ Displaying passed arguments
+- ✅ Navigating back to the home screen
+- ✅ Error handling for missing arguments
+
+```dart
+import 'package:flutter/material.dart';
+
+class SecondScreen extends StatelessWidget {
+  const SecondScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // Retrieve arguments passed from the first screen (if any)
+    final message = ModalRoute.of(context)?.settings.arguments as String?;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Second Screen'),
+        backgroundColor: Colors.blue,
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'Welcome to the Second Screen!',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            if (message != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue),
+                ),
+                child: Text(
+                  'Message from Home: $message',
+                  style: const TextStyle(fontSize: 16, color: Colors.blue),
+                ),
+              )
+            else
+              const Text(
+                'No message received',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            const SizedBox(height: 40),
+            ElevatedButton(
+              onPressed: () {
+                // Navigate back to the previous screen
+                Navigator.pop(context);
+              },
+              child: const Text('Back to Home Screen'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+---
+
+## 🔄 Routes Configuration in main.dart
+
+Update `main.dart` to define named routes in the `MaterialApp` widget:
+
+```dart
+import 'package:flutter/material.dart';
+import 'screens/navigation_demo_home_screen.dart';
+import 'screens/second_screen.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'PlantConnect',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+        useMaterial3: true,
+      ),
+      // Define named routes
+      routes: {
+        '/navigation_demo': (_) => const NavigationDemoHomeScreen(),
+        '/navigation_demo_second': (_) => const SecondScreen(),
+        // Other routes...
+      },
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
+```
+
+### **Route Registration Details**
+
+| Route | Screen | Purpose |
+|---|---|---|
+| `/navigation_demo` | NavigationDemoHomeScreen | Demo home with two buttons |
+| `/navigation_demo_second` | SecondScreen | Target screen with message display |
+
+---
+
+## 🎯 How to Test the Navigation Demo
+
+### **Step 1: Access the Navigation Demo**
+
+From the login screen after authentication, you can access the demo by modifying your code temporarily:
+
+```dart
+// In main.dart, temporarily set the home to:
+home: const NavigationDemoHomeScreen(),
+```
+
+Or navigate to it from another screen using:
+
+```dart
+Navigator.pushNamed(context, '/navigation_demo');
+```
+
+### **Step 2: Test Basic Navigation**
+
+1. Launch the app and see the **Home Screen**
+2. Tap **"Go to Second Screen"** button
+3. Verify that the **Second Screen** appears
+4. Tap **"Back to Home Screen"** button
+5. Verify that you return to the **Home Screen**
+
+**Expected Behavior:** Smooth screen transitions with proper AppBar titles updating
+
+### **Step 3: Test Navigation with Arguments**
+
+1. From **Home Screen**, tap **"Go to Second Screen with Message"**
+2. Verify that the **Second Screen** displays: `"Message from Home: Hello from Home Screen! 👋"`
+3. Confirm that the message is displayed in a blue-highlighted container
+4. Tap **"Back to Home Screen"** to return
+
+**Expected Behavior:** Data is successfully passed and displayed on the target screen
+
+### **Step 4: Verify Navigation Stack Behavior**
+
+1. From **Home Screen**, navigate to **Second Screen**
+2. The **Home Screen** should still be in the navigation stack (not destroyed)
+3. Pressing back returns to **Home Screen** (not reloading it)
+4. The entire app state and widget tree should be preserved
+
+---
+
+## 💡 Advanced Navigation Concepts
+
+### **Passing Complex Data**
+
+You can pass more complex data objects using arguments:
+
+```dart
+// Sending complex data
+Navigator.pushNamed(
+  context,
+  '/navigation_demo_second',
+  arguments: {
+    'title': 'Plant Care Guide',
+    'description': 'Water your plants every 2-3 days',
+    'imageUrl': 'https://example.com/image.jpg',
+  },
+);
+
+// Receiving complex data
+final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+final title = args?['title'] ?? 'No title';
+final description = args?['description'] ?? 'No description';
+```
+
+### **Navigation with Custom Animation**
+
+For more advanced navigation, use `Navigator.push()` with custom page transitions:
+
+```dart
+Navigator.push(
+  context,
+  PageRouteBuilder(
+    pageBuilder: (context, animation, secondaryAnimation) {
+      return const SecondScreen();
+    },
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      // Slide animation
+      const begin = Offset(1.0, 0.0);
+      const end = Offset.zero;
+      const curve = Curves.ease;
+
+      var tween = Tween(begin: begin, end: end)
+          .chain(CurveTween(curve: curve));
+
+      return SlideTransition(
+        position: animation.drive(tween),
+        child: child,
+      );
+    },
+  ),
+);
+```
+
+### **Preventing Back Navigation**
+
+Use `WillPopScope` to prevent users from navigating back with the system back button:
+
+```dart
+class SecondScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: () async {
+        // Return false to prevent back navigation
+        return false;
+      },
+      child: Scaffold(
+        // ... rest of the widget
+      ),
+    );
+  }
+}
+```
+
+---
+
+## 📊 Navigation Stack Visualization
+
+### **Scenario 1: Simple Push and Pop**
+
+```
+Action                  Navigation Stack
+────────────────────────────────────────
+Initial load            [HomeScreen]
+push(SecondScreen)      [HomeScreen, SecondScreen]
+pop()                   [HomeScreen]
+```
+
+### **Scenario 2: Multiple Navigations**
+
+```
+Action                  Navigation Stack
+────────────────────────────────────────
+Initial load            [HomeScreen]
+push(SecondScreen)      [HomeScreen, SecondScreen]
+push(ThirdScreen)       [HomeScreen, SecondScreen, ThirdScreen]
+pop()                   [HomeScreen, SecondScreen]
+pop()                   [HomeScreen]
+```
+
+### **Scenario 3: Push Replacement**
+
+```
+Action                           Navigation Stack
+─────────────────────────────────────────────────
+Initial load                     [LoginScreen]
+pushReplacementNamed(HomeScreen) [HomeScreen]
+                                 (LoginScreen removed)
+```
+
+---
+
+## 🎓 Benefits of Named Routes
+
+### **1. Maintainability**
+- Route names are centralized in `main.dart`
+- Easy to see all available routes at a glance
+- Changes to route structure only require updates in one place
+
+### **2. Type Safety (with Go Router)**
+For larger apps, consider using `go_router` package:
+
+```dart
+final GoRouter _router = GoRouter(
+  routes: <GoRoute>[
+    GoRoute(
+      path: '/',
+      builder: (BuildContext context, GoRouterState state) {
+        return const NavigationDemoHomeScreen();
+      },
+      routes: <GoRoute>[
+        GoRoute(
+          path: 'second',
+          builder: (BuildContext context, GoRouterState state) {
+            return const SecondScreen();
+          },
+        ),
+      ],
+    ),
+  ],
+);
+```
+
+### **3. Deep Linking Support**
+Named routes make deep linking easier:
+
+```dart
+// Navigate directly to nested route via URL
+// myapp://navigation_demo shows the demo screen
+```
+
+### **4. Consistency**
+All navigation follows the same pattern throughout the app, making code more predictable and easier to review.
+
+---
+
+## 🧪 Testing Navigation
+
+### **Unit Test Example**
+
+```dart
+void main() {
+  testWidgets('Navigation to second screen', (WidgetTester tester) async {
+    await tester.pumpWidget(const MyApp());
+
+    // Verify home screen is displayed
+    expect(find.byType(NavigationDemoHomeScreen), findsOneWidget);
+
+    // Tap navigation button
+    await tester.tap(find.byType(ElevatedButton).first);
+    await tester.pumpAndSettle();
+
+    // Verify second screen is displayed
+    expect(find.byType(SecondScreen), findsOneWidget);
+  });
+}
+```
+
+---
+
+## 🔍 Troubleshooting Navigation Issues
+
+### **Issue: "Route named '/screen' not found"**
+
+**Cause:** Route not registered in `routes` map
+
+**Solution:**
+```dart
+routes: {
+  '/navigation_demo': (_) => const NavigationDemoHomeScreen(),
+  '/navigation_demo_second': (_) => const SecondScreen(),
+}
+```
+
+### **Issue: Arguments not passed correctly**
+
+**Cause:** Incorrect argument retrieval syntax
+
+**Solution:**
+```dart
+// ❌ Wrong
+final args = ModalRoute.of(context).settings.arguments;
+
+// ✅ Correct
+final args = ModalRoute.of(context)?.settings.arguments as String?;
+```
+
+### **Issue: Screen not popping after navigation**
+
+**Cause:** Using `pushReplacement` instead of `push`
+
+**Solution:**
+```dart
+// ❌ Can't pop back
+Navigator.pushReplacementNamed(context, '/other');
+
+// ✅ Can pop back
+Navigator.pushNamed(context, '/other');
+```
+
+---
+
+## 📋 Reflection: Navigation in Larger Applications
+
+### **How does Navigator manage the app's stack of screens?**
+
+The Navigator widget maintains a **stack of screens** (pages). When you:
+
+1. **Push** a new screen → It's added to the top of the stack
+2. **Pop** a screen → It's removed from the top, revealing the previous screen
+3. **Replace** a screen → Current screen is replaced with a new one (old one deleted from stack)
+
+The stack follows **LIFO (Last In, First Out)** principle, similar to a call stack in programming.
+
+### **What are the benefits of using named routes in larger applications?**
+
+1. **Centralized Route Management** → All routes defined in one place (`main.dart`)
+2. **Scalability** → Easy to add new routes without modifying multiple files
+3. **Maintainability** → Route names are self-documenting and easy to track
+4. **Deep Linking** → Named routes support URL-based navigation
+5. **Team Collaboration** → Team members can see all available routes immediately
+6. **Consistency** → All navigation follows the same naming convention
+7. **Refactoring Safety** → Changes to routes only require updates in the routes map
+8. **Performance** → Lazy instantiation of screens only when needed
+
+In production apps with 20+ screens, named routes with a routing package like `go_router` becomes essential for code organization and maintainability.
+
+---
+
+
 
 A minimal Flutter application demonstrating a nested widget tree and reactive
 state updates lives in the `widget_tree_demo/` folder. Below is the hierarchy of
