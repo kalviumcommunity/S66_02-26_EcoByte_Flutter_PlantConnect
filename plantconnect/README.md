@@ -82,3 +82,37 @@ Next steps
 
 - Add screenshots and a short 1–2 minute demo video link into the PR description.
 - Commit and push the `plantconnect/screenshots/` directory and updated `plantconnect/README.md` to the existing branch so they appear in the same PR.
+
+---
+
+## Reusable Custom Widgets
+
+This demo adds two reusable widgets under `lib/widgets/`:
+
+- `InfoCard` — a `StatelessWidget` for displaying titled card rows.
+- `CustomButton` — a small configurable button used across screens.
+
+Files added:
+
+- `plantconnect/lib/widgets/info_card.dart`
+- `plantconnect/lib/widgets/custom_button.dart`
+
+How I reused them
+
+- `plantconnect/lib/screens/home_screen.dart` now shows `InfoCard` for account info.
+- `plantconnect/lib/screens/second_screen.dart` uses `CustomButton` for navigation.
+
+Try it locally
+
+```bash
+cd plantconnect
+flutter pub get
+flutter run
+```
+
+Suggested commit message for this change:
+
+```
+feat: created and reused custom widgets for modular UI design
+```
+
