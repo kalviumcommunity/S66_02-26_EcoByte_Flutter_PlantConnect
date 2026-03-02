@@ -9,6 +9,7 @@ import 'screens/second_screen.dart';
 import 'screens/responsive_layout.dart';
 import 'screens/scrollable_views.dart';
 import 'screens/user_input_form.dart';
+import 'screens/state_management_demo.dart';
 import 'services/auth_service.dart';
 import 'firebase_options.dart';
 
@@ -37,6 +38,7 @@ class MyApp extends StatelessWidget {
         '/responsive_layout': (_) => const ResponsiveLayout(),
         '/scrollable_views': (_) => const ScrollableViews(),
         '/user_input_form': (_) => const UserInputForm(),
+        '/state_management_demo': (_) => const StateManagementDemo(),
       },
       debugShowCheckedModeBanner: false,
     );
