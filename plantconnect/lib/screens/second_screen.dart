@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_button.dart';
 
 class SecondScreen extends StatelessWidget {
   const SecondScreen({super.key});
@@ -19,10 +20,7 @@ class SecondScreen extends StatelessWidget {
           children: [
             const Text(
               'Welcome to the Second Screen!',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
             if (message != null)
@@ -50,31 +48,16 @@ class SecondScreen extends StatelessWidget {
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
                   'No message received from the previous screen',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
               ),
             const SizedBox(height: 40),
-            ElevatedButton(
+            CustomButton(
+              label: 'Back to Home Screen',
+              color: Colors.blue,
               onPressed: () {
                 Navigator.pop(context);
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
-                ),
-              ),
-              child: const Text(
-                'Back to Home Screen',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.white,
-                ),
-              ),
             ),
           ],
         ),

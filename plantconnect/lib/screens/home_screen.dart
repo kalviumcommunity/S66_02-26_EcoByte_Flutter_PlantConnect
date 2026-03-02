@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import 'login_screen.dart';
+import '../widgets/info_card.dart';
+import '../widgets/custom_button.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -52,9 +54,9 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error adding note: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error adding note: $e')));
     }
   }
 
@@ -97,9 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           ElevatedButton(
             onPressed: _addNote,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green[700],
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green[700]),
             child: const Text(
               'Add Note',
               style: TextStyle(color: Colors.white),
@@ -119,9 +119,9 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting note: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error deleting note: $e')));
     }
   }
 
@@ -190,9 +190,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green[700],
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green[700]),
             child: const Text(
               'Update Note',
               style: TextStyle(color: Colors.white),
@@ -246,26 +244,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 5),
                 Text(
                   user?.email ?? 'User',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ],
             ),
           ),
+          // Reusable InfoCard showing account information
+          InfoCard(
+            title: 'Account',
+            subtitle: user?.email ?? 'User',
+            icon: Icons.person,
+          ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: _firestoreService.getUserDocumentsStream('notes', user?.uid ?? ''),
+              stream: _firestoreService.getUserDocumentsStream(
+                'notes',
+                user?.uid ?? '',
+              ),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
                 if (snapshot.hasError) {
-                  return Center(
-                    child: Text('Error: ${snapshot.error}'),
-                  );
+                  return Center(child: Text('Error: ${snapshot.error}'));
                 }
 
                 final notes = snapshot.data?.docs ?? [];
@@ -310,12 +312,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     final data = note.data() as Map<String, dynamic>;
 
                     return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+                      margin: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 0,
+                      ),
                       child: ListTile(
-                        leading: Icon(
-                          Icons.note,
-                          color: Colors.green[700],
-                        ),
+                        leading: Icon(Icons.note, color: Colors.green[700]),
                         title: Text(
                           data['title'] ?? 'Untitled',
                           style: const TextStyle(fontWeight: FontWeight.bold),
@@ -341,9 +343,16 @@ class _HomeScreenState extends State<HomeScreen> {
                               onTap: () => _deleteNote(note.id),
                               child: const Row(
                                 children: [
-                                  Icon(Icons.delete, size: 20, color: Colors.red),
+                                  Icon(
+                                    Icons.delete,
+                                    size: 20,
+                                    color: Colors.red,
+                                  ),
                                   SizedBox(width: 10),
-                                  Text('Delete', style: TextStyle(color: Colors.red)),
+                                  Text(
+                                    'Delete',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
                                 ],
                               ),
                             ),
