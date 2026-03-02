@@ -54,6 +54,84 @@ To deliver a stable, demo-ready MVP that demonstrates:
 
 ---
 
+## ⚡ Hot Reload & DevTools Demo
+
+This repository includes a short demonstration of using Flutter's **Hot Reload**, the **Debug Console**, and **Flutter DevTools** to speed up development and debug UI/performance issues.
+
+What I changed for the demo
+
+- Added this demo documentation and checklist to help you reproduce the steps locally.
+- Created a `screenshots/` directory (add your screenshots here before opening a PR).
+
+Quick steps to reproduce the demo
+
+1. Pull latest `main` and create a feature branch:
+
+```bash
+git checkout main
+git fetch origin
+git pull origin main
+git checkout -b feat/hot-reload-devtools-demo
+```
+
+2. Run the app:
+
+```bash
+flutter pub get
+flutter run
+```
+
+3. Apply Hot Reload:
+
+- In the terminal running `flutter run`, press `r` to hot reload the app.
+- In VS Code, click the ⚡ Hot Reload button in the debug toolbar.
+
+4. Use the Debug Console:
+
+- Add `debugPrint('My debug message');` in your code (for example in a button handler or `setState`).
+- Observe output in the Debug Console in VS Code or in the terminal running `flutter run`.
+
+5. Open Flutter DevTools:
+
+- In VS Code while debugging, run the command "Open DevTools" and choose the Widget Inspector or Performance tab.
+- Or from the terminal:
+
+```bash
+flutter pub global activate devtools
+flutter pub global run devtools
+```
+
+Files to include in your PR
+
+- `README.md` (this file — includes demo steps)
+- `screenshots/hot_reload_after.png` (Hot Reload result)
+- `screenshots/debug_console_logs.png` (Debug Console showing logs)
+- `screenshots/devtools_widget_inspector.png` (DevTools open to Widget Inspector / Performance)
+
+Reflection prompts to include in PR description
+
+- How did Hot Reload speed up your iterations?
+- What did DevTools reveal about widget layout or performance?
+- How would you share these tools and their outputs with teammates?
+
+Suggested commit message for the demo
+
+```
+chore: demonstrated use of Hot Reload, Debug Console, and DevTools
+```
+
+Suggested PR title
+
+```
+[Sprint-2] Hot Reload & DevTools Demonstration – TeamName
+```
+
+Next steps (after adding screenshots and video)
+
+- Stage and commit the screenshots and updated `README.md`.
+- Push the branch and open a PR with the summary, screenshots, and a short 1–2 minute demo video link.
+
+
 # 🚀 Installation & Setup Guide
 
 ## 📋 Prerequisites
