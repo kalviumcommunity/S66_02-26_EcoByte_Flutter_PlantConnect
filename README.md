@@ -952,6 +952,78 @@ framework handles diffing and minimizes redraws automatically.
 
 ---
 
+## 🔁 Stateless vs Stateful Widgets
+
+Flutter distinguishes between two widget types:
+
+* **StatelessWidget** – immutable and must be rebuilt by its parent when data
+  changes. Good for static UI such as titles, icons, and fixed layouts.
+* **StatefulWidget** – maintains an associated `State` object and can call
+  `setState()` to trigger internal rebuilds when its state changes.
+
+### Code examples
+
+```dart
+class GreetingWidget extends StatelessWidget {
+  final String name;
+  const GreetingWidget({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text('Hello, $name!');
+  }
+}
+```
+
+```dart
+class CounterWidget extends StatefulWidget {
+  @override
+  _CounterWidgetState createState() => _CounterWidgetState();
+}
+
+class _CounterWidgetState extends State<CounterWidget> {
+  int count = 0;
+  void _increment() => setState(() => count++);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text('Count: $count'),
+        ElevatedButton(onPressed: _increment, child: Text('Increase')),
+      ],
+    );
+  }
+}
+```
+
+The `stateless_stateful_demo.dart` screen combines both types: `DemoHeader` is
+stateless and never rebuilds, while `DemoBody` is stateful and updates its
+counter and visibility flag.
+
+### Demonstration screenshots
+
+**Initial layout**
+
+![Stateless Stateful Initial](path/to/initial_state.png)
+
+**After interactions**
+
+![Stateless Stateful Updated](path/to/updated_state.png)
+
+### Reflection
+
+* Use stateless widgets when you don’t need to manage any internal data; they
+  are predictable and cheaper to rebuild.
+* Stateful widgets are necessary when the UI must respond to user actions or
+  asynchronous events – the framework can rebuild exactly the subtree of
+  affected widgets.
+* Understanding the distinction helps avoid unnecessary rebuilds and improves
+  performance because Flutter’s rendering pipeline only processes changed
+  widgets.
+
+---
+
 # 📦 Build & Run
 
 ```bash
