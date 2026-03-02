@@ -116,3 +116,37 @@ Suggested commit message for this change:
 feat: created and reused custom widgets for modular UI design
 ```
 
+---
+
+## Responsive Design Demo
+
+This repository includes a small responsive layout demo using `MediaQuery` and `LayoutBuilder`.
+
+File added:
+
+- `plantconnect/lib/screens/responsive_demo.dart`
+
+How it works:
+
+- Uses `MediaQuery.of(context).size` for relative sizing (width/height percentages).
+- Uses `LayoutBuilder` to pick a mobile column layout for widths under 600px and a two-panel row for larger screens.
+
+Quick run:
+
+```bash
+cd plantconnect
+flutter pub get
+flutter run
+```
+
+Testing tips:
+
+- Use emulator/device rotation to check portrait/landscape behavior.
+- Resize the window when running on desktop/web to see layout switch.
+
+Suggested commit message for responsive changes:
+
+```
+feat: implemented responsive design using MediaQuery and LayoutBuilder
+```
+
