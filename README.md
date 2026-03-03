@@ -4834,3 +4834,115 @@ Try adding these features to the state management demo:
 
 ---
 
+## 📁 Asset Management in Flutter
+
+This project now includes a simple **assets demo** screen that shows how to
+load local images and display built‑in icons. Assets are static files bundled
+with your app (images, icons, fonts, JSON, etc.) and must be registered in
+`pubspec.yaml` in order for Flutter to package them.
+
+### Folder structure
+
+```
+plantconnect/
+├── assets/
+│   ├── images/
+│   │    ├── logo.png          <-- app logo or placeholder
+│   │    ├── background.png    <-- used for Container decoration
+│   └── icons/
+│        ├── star.png
+│        └── profile.png
+```
+
+You can replace the placeholder PNGs with your own artwork. They are
+1×1 transparent images included only so that the project builds without
+complaints.
+
+### pubspec.yaml configuration
+
+```yaml
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
+```
+
+Indentation matters – use **two spaces** for nested properties. After adding
+new files, run `flutter pub get` or perform a full rebuild when using hot
+reload.
+
+### Using the assets in code
+
+```dart
+Image.asset(
+  'assets/images/logo.png',
+  width: 150,
+  height: 150,
+  fit: BoxFit.cover,
+);
+
+Container(
+  decoration: BoxDecoration(
+    image: DecorationImage(
+      image: AssetImage('assets/images/background.png'),
+      fit: BoxFit.cover,
+    ),
+  ),
+  child: Center(
+    child: Text('Welcome to Flutter!',
+        style: TextStyle(color: Colors.white, fontSize: 22)),
+  ),
+);
+```
+
+And built–in Material icons can be mixed freely:
+
+```dart
+Row(
+  mainAxisAlignment: MainAxisAlignment.center,
+  children: [
+    Icon(Icons.star, color: Colors.amber, size: 32),
+    SizedBox(width: 10),
+    Text('Starred', style: TextStyle(fontSize: 18)),
+  ],
+);
+```
+
+### Demo screen
+
+Access the demo via the **image icon** in the top–right of the
+`PlantConnect Dashboard` app bar, or by navigating to `/assets_demo`.
+
+### Common pitfalls
+
+* Incorrect file path – must exactly match the folder name and file name
+  including case.
+* YAML indentation errors – they cause `flutter pub get` failures.
+* Forgetting to list new files or directories under `flutter.assets`.
+* Hot reload doesn’t pick up new asset files; run `pub get` or restart app.
+
+### Reflection
+
+*Organizing assets into folders makes them easier to manage and replace.*
+*Registering them in `pubspec.yaml` ensures they’re packaged with the app.*
+*Good asset practices (naming conventions, size optimization, subgrouping)
+scale well as projects grow.*
+
+Screenshots of the running demo and the pubspec snippet belong in
+`screenshots/` before submitting a PR.
+
+**Commit message suggestion:**
+```
+feat: configured and displayed assets using pubspec.yaml
+```
+
+**PR title:**
+```
+[Sprint-2] Managing Assets & Icons in Flutter – TeamName
+```
+
+Include a summary, screenshots, and a short reflection in the PR description.
+
+---
+

@@ -24,7 +24,12 @@ class ResponsiveDemo extends StatelessWidget {
                     width: screenWidth * 0.9,
                     height: screenHeight * 0.18,
                     color: Colors.tealAccent,
-                    child: const Center(child: Text('Mobile View', style: TextStyle(fontSize: 18))),
+                    child: const Center(
+                      child: Text(
+                        'Mobile View',
+                        style: TextStyle(fontSize: 18),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Padding(
@@ -49,7 +54,9 @@ class ResponsiveDemo extends StatelessWidget {
                   width: 300,
                   height: 220,
                   color: Colors.orangeAccent,
-                  child: const Center(child: Text('Left Panel', style: TextStyle(fontSize: 18))),
+                  child: const Center(
+                    child: Text('Left Panel', style: TextStyle(fontSize: 18)),
+                  ),
                 ),
                 const SizedBox(width: 24),
                 Container(

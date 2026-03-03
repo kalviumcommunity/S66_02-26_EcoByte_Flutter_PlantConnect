@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:plantconnect/main.dart';
+import 'package:plantconnect/screens/asset_demo_screen.dart';
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
@@ -26,5 +27,17 @@ void main() {
     // Verify that our counter has incremented.
     expect(find.text('0'), findsNothing);
     expect(find.text('1'), findsOneWidget);
+  });
+
+  testWidgets('Asset demo screen displays local image and icons', (
+    WidgetTester tester,
+  ) async {
+    // pump the standalone screen instead of full app
+    await tester.pumpWidget(const MaterialApp(home: AssetDemoScreen()));
+
+    expect(find.text('Assets Demo'), findsOneWidget);
+    // the image asset might not render, but the widget should exist
+    expect(find.byType(Image), findsOneWidget);
+    expect(find.byIcon(Icons.flutter_dash), findsOneWidget);
   });
 }
