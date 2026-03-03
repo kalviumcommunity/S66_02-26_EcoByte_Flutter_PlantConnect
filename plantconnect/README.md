@@ -150,3 +150,27 @@ Suggested commit message for responsive changes:
 feat: implemented responsive design using MediaQuery and LayoutBuilder
 ```
 
+---
+
+## 📁 Asset Management Demo
+
+A new screen shows how to load **local images** and use Flutter's built-in
+icons. Access it by tapping the image icon in the home screen app bar or
+by navigating to `/assets_demo`.
+
+Make sure assets are registered in `pubspec.yaml` before running:
+
+```yaml
+flutter:
+  assets:
+    - assets/images/
+    - assets/icons/
+```
+
+Placeholder PNGs are included under `assets/images` and `assets/icons` –
+replace them with your own logo, banner or icons. After adding new files run
+`flutter pub get` to update the asset bundle.
+
+Screenshots can be placed in `plantconnect/screenshots/` and referenced in
+the PR description.
+

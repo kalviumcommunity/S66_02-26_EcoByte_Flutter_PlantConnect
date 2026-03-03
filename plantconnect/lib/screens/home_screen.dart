@@ -4,7 +4,6 @@ import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import 'login_screen.dart';
 import '../widgets/info_card.dart';
-import '../widgets/custom_button.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -211,6 +210,13 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.green[700],
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.image),
+            tooltip: 'Assets demo',
+            onPressed: () {
+              Navigator.of(context).pushNamed('/assets_demo');
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
