@@ -174,3 +174,37 @@ replace them with your own logo, banner or icons. After adding new files run
 Screenshots can be placed in `plantconnect/screenshots/` and referenced in
 the PR description.
 
+---
+
+## 🎞️ Animation Demo
+
+This repository now contains a simple animation playground illustrating
+implicit and explicit animations plus a custom slide transition between pages.
+
+- **Implicit demo**: an `AnimatedContainer` and `AnimatedOpacity` toggle
+  size/color/opacity when you tap the toggle button.
+- **Explicit demo**: a separate page (accessible via button) that rotates the
+  logo using an `AnimationController` with a `RotationTransition`.
+- **Custom page transition**: the rotation page slides in from the right
+  using `PageRouteBuilder` and a `SlideTransition`.
+
+You open the animation screen by tapping the 🎬 icon in the app bar or by
+navigating to `/animations_demo`.
+
+Reflection prompts:
+
+* Why are animations helpful for UX?
+* When is an implicit animation sufficient vs requiring an explicit controller?
+* How would you apply these techniques in the main PlantConnect app?
+
+Commit message suggestion:
+```
+feat: added animations and transitions for improved UX
+```
+
+PR title:
+```
+[Sprint-2] Flutter Animations & Transitions – TeamName
+```
+
+Add a brief summary and at least one screenshot or GIF to your PR description.

@@ -4932,17 +4932,77 @@ scale well as projects grow.*
 Screenshots of the running demo and the pubspec snippet belong in
 `screenshots/` before submitting a PR.
 
+---
+
+## 🎞️ Animation & Transition Demo
+
+A new **animations screen** illustrates both implicit and explicit
+controllable effects, plus a custom page transition when navigating to a
+rotation demo.
+
+### Implicit animations
+The first part of the screen uses `AnimatedContainer` and
+`AnimatedOpacity` to smoothly change size, color, and transparency when a
+`Toggle animation` button is pressed.
+
+### Explicit animation
+Tapping the "Go to rotation demo" button slides the second page in from the
+right (using `PageRouteBuilder` and `SlideTransition`). The second page
+contains a continuously rotating logo driven by an `AnimationController`
+and a `RotationTransition`.
+
+### Code snippets
+```dart
+AnimatedContainer(
+  width: _toggled ? 200 : 100,
+  height: _toggled ? 100 : 200,
+  color: _toggled ? Colors.teal : Colors.orange,
+  duration: Duration(seconds: 1),
+  curve: Curves.easeInOut,
+  child: Center(child: Text('Tap Me!')),
+);
+
+// slide transition when pushing
+Navigator.push(
+  context,
+  PageRouteBuilder(
+    transitionDuration: Duration(milliseconds: 700),
+    pageBuilder: (context, a, sa) => NextPage(),
+    transitionsBuilder: (context, animation, sa, child) {
+      return SlideTransition(
+        position: Tween<Offset>(begin: Offset(1,0), end: Offset.zero)
+            .animate(CurvedAnimation(parent: animation, curve: Curves.easeInOut)),
+        child: child,
+      );
+    },
+  ),
+);
+```
+
+### Reflection
+*Animations make UI feel alive and provide feedback without overwhelming.*
+*Implicit widgets are quick to implement for simple property changes, while
+explicit controllers give total control and composability.*
+*Use durations in the 300–800 ms range and natural curves (easeInOut) to keep
+motion smooth. Always test on actual devices.*
+
+#### Tests
+We added widget tests for both screens to ensure the animated widgets exist
+and respond to toggles.
+
+---
+
 **Commit message suggestion:**
 ```
-feat: configured and displayed assets using pubspec.yaml
+feat: added animations and transitions for improved UX
 ```
 
 **PR title:**
 ```
-[Sprint-2] Managing Assets & Icons in Flutter – TeamName
+[Sprint-2] Flutter Animations & Transitions – TeamName
 ```
 
-Include a summary, screenshots, and a short reflection in the PR description.
+Include a summary, screenshots or GIFs along with your reflections.
 
 ---
 

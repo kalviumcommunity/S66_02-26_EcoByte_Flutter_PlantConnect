@@ -40,4 +40,32 @@ void main() {
     expect(find.byType(Image), findsOneWidget);
     expect(find.byIcon(Icons.flutter_dash), findsOneWidget);
   });
+
+  testWidgets('Implicit animation screen toggles and shows widgets', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: AnimationsDemoScreen()));
+
+    expect(
+      find.text('Implicit animation (AnimatedContainer + Opacity)'),
+      findsOneWidget,
+    );
+    expect(find.byType(AnimatedContainer), findsOneWidget);
+    expect(find.byType(AnimatedOpacity), findsOneWidget);
+
+    // tap toggle button and pump to animate
+    await tester.tap(find.text('Toggle animation'));
+    await tester.pumpAndSettle();
+
+    // opacity change may require pumpAndSettle; ensure widget still present
+    expect(find.byType(Image), findsOneWidget);
+  });
+
+  testWidgets('Rotation demo screen builds and contains rotation widget', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: RotateLogoDemo()));
+    expect(find.text('Rotation Animation Demo'), findsOneWidget);
+    expect(find.byType(RotationTransition), findsOneWidget);
+  });
 }
