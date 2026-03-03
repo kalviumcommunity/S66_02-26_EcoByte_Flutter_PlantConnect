@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:82423488286:android:7df6c2049472000deeb30f",
+        "mobilesdk_app_id": "1:82423488286:android:49c3441ef37b7c59eeb30f",
         "android_client_info": {
-          "package_name": "com.example.plantconnect"
+          "package_name": "com.android.application"
         }
       },
       "oauth_client": [],

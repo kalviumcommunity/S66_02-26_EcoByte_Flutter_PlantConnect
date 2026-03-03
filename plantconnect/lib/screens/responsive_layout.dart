@@ -160,7 +160,7 @@ class ResponsiveLayout extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.assess,
+                  Icons.analytics,
                   size: 48,
                   color: Colors.green.shade700,
                 ),
@@ -242,7 +242,7 @@ class ResponsiveLayout extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.assess,
+                Icons.analytics,
                 size: 48,
                 color: Colors.green.shade700,
               ),
