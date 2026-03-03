@@ -211,6 +211,13 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.animation),
+            tooltip: 'Animations demo',
+            onPressed: () {
+              Navigator.of(context).pushNamed('/animations_demo');
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.image),
             tooltip: 'Assets demo',
             onPressed: () {
