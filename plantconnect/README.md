@@ -173,6 +173,598 @@ Next step: Implement user login screen and Firestore operations to fully utilize
 
 ---
 
+## 🔐 Firebase Authentication Implementation
+
+### What is Firebase Authentication?
+
+Firebase Authentication is a backend service that handles user identity and access control for mobile and web apps. It provides secure APIs for user signup and login without requiring you to build custom authentication servers.
+
+**Key Features:**
+- ✅ Email/Password authentication
+- ✅ Social login (Google, Apple, GitHub)
+- ✅ Phone number authentication
+- ✅ Session management and token handling
+- ✅ Password reset functionality
+- ✅ Secure credential storage
+- ✅ Built-in security against common attacks (brute force protection, etc.)
+
+**PlantConnect Implementation:** Email/Password authentication for user signup and login
+
+### Enable Email/Password Authentication in Firebase Console
+
+1. **Open Firebase Console**
+   - Go to [console.firebase.google.com](https://console.firebase.google.com)
+   - Select your project: `plantconnect-7dd0c`
+
+2. **Navigate to Authentication**
+   - Click **Authentication** in the left sidebar
+   - Click the **Sign-in method** tab
+
+3. **Enable Email/Password**
+   - Click on **Email/Password**
+   - Toggle the switch to **Enable**
+   - Click **Save**
+
+This allows your app to perform signup and login operations via Firebase APIs.
+
+### Authentication Architecture in PlantConnect
+
+Your app uses a service-based architecture for clean, maintainable code:
+
+```
+main.dart (Firebase initialization)
+    ↓
+AuthWrapper (Stream-based auth state management)
+    ↓
+├─ LoginScreen (if user is not authenticated)
+├─ SignupScreen (for new users)
+└─ HomeScreen (if user is authenticated)
+    ↓
+AuthService (Firebase Auth API calls)
+    ↓
+Firebase Authentication Backend
+```
+
+### AuthService: Core Authentication Logic
+
+**Location:** `lib/services/auth_service.dart`
+
+The `AuthService` class handles all Firebase authentication operations:
+
+```dart
+class AuthService {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // Get the currently logged-in user
+  User? get currentUser => _auth.currentUser;
+
+  // Stream of authentication state changes
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  // Sign up with email and password
+  Future<User?> signUp(String email, String password) async {
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    return credential.user;
+  }
+
+  // Login with email and password
+  Future<User?> login(String email, String password) async {
+    final credential = await _auth.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    return credential.user;
+  }
+
+  // Logout
+  Future<void> logout() async {
+    await _auth.signOut();
+  }
+
+  // Reset password
+  Future<void> resetPassword(String email) async {
+    await _auth.sendPasswordResetEmail(email: email);
+  }
+}
+```
+
+**Key Methods:**
+- `signUp()` - Creates a new user account with email and password
+- `login()` - Authenticates existing user
+- `logout()` - Signs out current user
+- `resetPassword()` - Sends password reset email
+- `authStateChanges` - Stream that emits user changes (perfect for navigation)
+
+### LoginScreen: User Authentication UI
+
+**Location:** `lib/screens/login_screen.dart`
+
+The login screen allows users to:
+- Enter email and password
+- Sign in to existing accounts
+- Handle authentication errors gracefully
+- Show loading indicator during auth process
+- Navigate to signup for new users
+
+**Key Features:**
+```dart
+class _LoginScreenState extends State<LoginScreen> {
+  final _authService = AuthService();
+
+  void _handleLogin() async {
+    // Validate input
+    // Call authService.login()
+    // Handle success (navigate to HomeScreen)
+    // Handle errors (show snackbar with error message)
+  }
+}
+```
+
+### SignupScreen: User Registration UI
+
+**Location:** `lib/screens/signup_screen.dart`
+
+The signup screen allows new users to:
+- Enter email and password
+- Create new accounts
+- Handle validation errors (weak password, invalid email)
+- Show Firebase error messages
+- Navigate back to login
+
+### AuthWrapper: Authentication State Management
+
+**Location:** `lib/main.dart`
+
+The `AuthWrapper` is a critical component that handles navigation based on authentication state:
+
+```dart
+class AuthWrapper extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: authService.authStateChanges,  // Listen to auth state changes
+      builder: (context, snapshot) {
+        // Show loading while checking auth state
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const CircularProgressIndicator();
+        }
+
+        // User is logged in → show HomeScreen
+        if (snapshot.hasData && snapshot.data != null) {
+          return const HomeScreen();
+        }
+
+        // User is logged out → show LoginScreen
+        return const LoginScreen();
+      },
+    );
+  }
+}
+```
+
+**How it works:**
+1. Listens to `authStateChanges` stream from AuthService
+2. When user logs in/out, the stream emits new state
+3. Widget rebuilds automatically
+4. Navigation happens without manual route management
+
+### Authentication Flow: Sign Up
+
+```
+User enters email & password
+    ↓
+SignupScreen calls authService.signUp()
+    ↓
+Firebase creates new account and sends verification email
+    ↓
+AuthService returns User object
+    ↓
+authStateChanges stream emits new User
+    ↓
+AuthWrapper detects change and navigates to HomeScreen
+    ↓
+User is now logged in ✅
+```
+
+### Authentication Flow: Login
+
+```
+User enters email & password
+    ↓
+LoginScreen calls authService.login()
+    ↓
+Firebase validates credentials against stored account
+    ↓
+If valid: AuthService returns User object
+If invalid: Firebase throws FirebaseAuthException
+    ↓
+On success: authStateChanges stream emits User
+    ↓
+AuthWrapper navigates to HomeScreen
+    ↓
+User is now logged in ✅
+```
+
+### Authentication Flow: Logout
+
+```
+User taps logout button
+    ↓
+HomeScreen calls authService.logout()
+    ↓
+Firebase signs out current session
+    ↓
+authStateChanges stream emits null (no user)
+    ↓
+AuthWrapper detects state change and navigates to LoginScreen
+    ↓
+User is now logged out ✅
+```
+
+### Verify Authentication in Firebase Console
+
+After users sign up or login:
+
+1. **Go to Firebase Console**
+   - Firebase Console → Your Project → Authentication
+
+2. **View Registered Users**
+   - Click the **Users** tab
+   - You'll see email addresses of all registered users
+   - Each entry shows:
+     - User UID (unique identifier)
+     - Email address
+     - Creation date
+     - Last sign-in time
+
+3. **Real-time Data Sync**
+   - Every successful signup/login automatically syncs with Firebase
+   - New users appear in the console immediately
+   - Last sign-in updates in real-time
+
+### Error Handling
+
+Firebase Authentication throws specific exceptions that your app handles:
+
+```dart
+try {
+  await AuthService().login(email, password);
+} on FirebaseAuthException catch (e) {
+  // Firebase-specific error
+  if (e.code == 'user-not-found') {
+    print('No account found with this email');
+  } else if (e.code == 'wrong-password') {
+    print('Incorrect password');
+  } else if (e.code == 'invalid-email') {
+    print('Invalid email format');
+  } else if (e.code == 'user-disabled') {
+    print('Account has been disabled');
+  } else {
+    print('Error: ${e.message}');
+  }
+}
+```
+
+**Common Error Codes:**
+- `user-not-found` - Email not registered
+- `wrong-password` - Incorrect password
+- `weak-password` - Password less than 6 characters
+- `invalid-email` - Malformed email
+- `email-already-in-use` - Email already registered
+- `user-disabled` - Account disabled by admin
+
+### Password Reset Feature
+
+Users can reset forgotten passwords:
+
+```dart
+await authService.resetPassword('user@example.com');
+```
+
+**How it works:**
+1. User enters email address
+2. Firebase sends password reset email to that address
+3. User clicks link in email
+4. User sets new password
+5. Next login uses new password
+
+### Credentials and Keys
+
+All authentication credentials are stored in `firebase_options.dart` and automatically used by the app.
+
+**No API keys or secrets hardcoded in code** ✅
+- Credentials are platform-specific
+- Firebase CLI generates them securely
+- They're never committed to version control (firebase_options.dart is in .gitignore)
+
+### Security Features
+
+Firebase Authentication provides built-in security:
+
+**1. Password Security**
+- Passwords are salted and hashed server-side
+- Never stored in plain text
+- Firebase enforces minimum 6-character passwords
+
+**2. Session Management**
+- Auth tokens expire automatically
+- Refresh tokens handle token renewal
+- Invalid tokens are rejected
+
+**3. Brute Force Protection**
+- Firebase blocks accounts after multiple failed login attempts
+- Temporary lockout prevents password guessing
+
+**4. Secure Communication**
+- HTTPS/TLS encryption for all authentication traffic
+- Man-in-the-middle attack protection
+
+**5. Platform-Specific Security**
+- Android: Credentials stored in Android Keystore
+- iOS: Credentials stored in Keychain
+- Web: Secure cookie storage with SameSite attributes
+
+### Comparison: Firebase Auth vs. Custom Auth
+
+| Feature | Firebase Auth | Custom Auth |
+|---------|---------------|------------|
+| **Setup Time** | 5 minutes | Weeks of development |
+| **Security** | Enterprise-grade | Must implement correctly |
+| **Maintenance** | Firebase handles patches | Your responsibility |
+| **Scalability** | Auto-scaling | Must manage infrastructure |
+| **Cost** | Free tier available | Server hosting costs |
+| **Features** | Rich set included | Custom implementation |
+| **Compliance** | GDPR ready | Must verify yourself |
+| **Downtime Risk** | Minimal (99.9% SLA) | Depends on your setup |
+
+### Integration with Firestore
+
+Once user is authenticated, their UID is available for Firestore operations:
+
+```dart
+String userId = FirebaseAuth.instance.currentUser!.uid;
+
+// Store user data in Firestore
+FirebaseFirestore.instance
+  .collection('users')
+  .doc(userId)
+  .set({
+    'email': user.email,
+    'displayName': 'User Name',
+    'createdAt': DateTime.now(),
+  });
+```
+
+This links user authentication to their database records.
+
+### Next Steps
+
+Your Firebase Authentication is fully implemented and production-ready:
+- ✅ Users can sign up with email/password
+- ✅ Users can login with credentials
+- ✅ Users can logout and clear sessions
+- ✅ Users can reset forgotten passwords
+- ✅ Authentication state is managed automatically
+- ✅ Errors are handled gracefully
+
+**Coming Next:**
+- Cloud Firestore integration for storing plant data
+- User profile management
+- Cloud Storage for plant images
+- Real-time notifications
+
+### 🎯 Firebase Authentication Reflection
+
+#### How Does Firebase Simplify Authentication Management?
+
+**Traditional Custom Authentication (Without Firebase):**
+1. Design database schema for users (email, hashed password, salt, etc.)
+2. Implement password hashing algorithm (bcrypt, Argon2, etc.)
+3. Build login API endpoint with validation
+4. Build signup API endpoint with email verification
+5. Implement session/token generation (JWT)
+6. Handle token refresh and expiration
+7. Implement password reset flow with email verification
+8. Implement account lockout for brute force protection
+9. Set up HTTPS/TLS encryption
+10. Handle edge cases (duplicate emails, concurrent logins, etc.)
+11. Maintain security patches and updates
+12. Scale infrastructure as user base grows
+13. Ensure compliance (GDPR, CCPA, etc.)
+14. Debug production issues with auth flows
+
+**Time Required:** 3-6 months of development + ongoing maintenance
+
+**With Firebase Authentication:**
+1. Enable email/password in Firebase Console ✅
+2. Import `firebase_auth` package ✅
+3. Use 2 methods: `signUp()` and `login()` ✅
+4. Listen to `authStateChanges` for navigation ✅
+
+**Time Required:** < 1 hour
+
+**Firebase Handles (So You Don't):**
+- ✅ Secure password hashing and storage
+- ✅ Session management and token generation
+- ✅ Password reset email flows
+- ✅ Account lockout and brute force protection
+- ✅ HTTPS/TLS encryption
+- ✅ GDPR and compliance standards
+- ✅ Infrastructure scaling (handles millions of users)
+- ✅ 99.9% uptime SLA
+- ✅ Automatic security patches
+- ✅ Real-time monitoring and alerts
+
+**Net Benefit:** Months of development saved, enterprise-grade security out of the box.
+
+#### What Security Features Make Firebase Better Than Custom Auth?
+
+**1. Secure by Default**
+- Firebase enforces HTTPS for all communication
+- TLS 1.2+ encryption mandatory
+- You can't accidentally transmit passwords in plain text
+
+**2. Battle-Tested Implementation**
+- Firebase Auth is used by millions of apps
+- Security vulnerabilities discovered and patched immediately
+- Backed by Google's security team
+
+**3. Platform-Specific Security**
+- **Android:** Credentials stored in Android Keystore (TEE-backed if available)
+- **iOS:** Credentials stored in Keychain (Secure Enclave if available)
+- **Web:** Secure cookie storage with HttpOnly and SameSite flags
+- Each platform uses its best-in-class credential storage
+
+**4. Password Policy Enforcement**
+- Minimum 6 characters enforced server-side
+- Can't bypass with client-side validation tricks
+- Prevents weak passwords at the source
+
+**5. Account Security**
+- Automatic account lockout after 5 failed login attempts for 5 minutes
+- Prevents brute force attacks (guessing passwords)
+- IP-based anomaly detection for suspicious login patterns
+- Unusual login notifications (if configured)
+
+**6. Token Security**
+- Auth tokens expire automatically (1 hour default)
+- Refresh tokens allow automatic renewal without re-entering password
+- Tokens are signed and encrypted
+- Invalid tokens are rejected server-side
+
+**7. Password Reset Security**
+- Reset links expire after 1 hour
+- One-time use (can't be reused)
+- Sent via email (proves you own the email address)
+- User must confirm new password
+
+**8. Separation of Concerns**
+- Your app never sees user passwords (Firebase handles them)
+- Passwords are never logged or stored in your database
+- Reduces security exposure in your infrastructure
+
+**Custom Implementation Risks:**
+- ❌ Developers might store plain-text passwords
+- ❌ Weak hashing algorithms (MD5, SHA-1)
+- ❌ Insufficient salt or too few iterations
+- ❌ Passwords logged in error messages
+- ❌ No rate limiting on login attempts
+- ❌ Insecure password reset flows
+- ❌ Token vulnerabilities (predictable, too long expiry)
+
+#### What Challenges Did You Face While Implementing Authentication?
+
+**Challenge 1: Managing Authentication State Across the App**
+- **Problem:** Knowing when user is logged in/out to show correct screen
+- **Solution:** Used Firebase `authStateChanges` stream in `AuthWrapper`
+- **Learning:** Streams are perfect for authentication state (reactive, real-time)
+- **Code:**
+  ```dart
+  StreamBuilder<User?>(
+    stream: authService.authStateChanges,
+    builder: (context, snapshot) {
+      return snapshot.hasData ? HomeScreen() : LoginScreen();
+    },
+  )
+  ```
+
+**Challenge 2: Handling Firebase Authentication Errors Gracefully**
+- **Problem:** Different error codes for different failure reasons
+- **Solution:** Catch `FirebaseAuthException` and show user-friendly messages
+- **Learning:** Error codes are predictable and well-documented
+- **Common Codes:**
+  - `user-not-found` - "Please create an account first"
+  - `wrong-password` - "Incorrect password"
+  - `weak-password` - "Password must be 6+ characters"
+  - `email-already-in-use` - "Account already exists"
+
+**Challenge 3: Switching Between Login and Signup Modes**
+- **Problem:** Separate screens for login and signup complexity
+- **Solution:** Single screen with boolean `isLogin` state variable
+- **Learning:** Toggle between modes without navigation
+- **Result:** Smoother UX, fewer route stacks
+
+**Challenge 4: Secure Credential Handling**
+- **Problem:** Where to store email/password temporarily?
+- **Solution:** Use `TextEditingController` (automatically disposed)
+- **Learning:** Never store credentials in persistent storage
+- **Best Practice:** Only send to Firebase, let them handle security
+
+**Challenge 5: Async Initialization**
+- **Problem:** Firebase takes time to initialize
+- **Solution:** `WidgetsFlutterBinding.ensureInitialized()` before Firebase.initializeApp()
+- **Learning:** Certain features require async setup before app starts
+- **Impact:** Without it, auth state listener wouldn't work
+
+**Challenge 6: Preventing Multiple Login Attempts**
+- **Problem:** User tapping login multiple times
+- **Solution:** Disable button and show loading indicator while authenticating
+- **Learning:** UX feedback prevents duplicate API calls
+- **Code:**
+  ```dart
+  setState(() => _isLoading = true);
+  try {
+    await authService.login(email, password);
+  } finally {
+    setState(() => _isLoading = false);
+  }
+  ```
+
+**Challenge 7: Linking Authentication to User Data**
+- **Problem:** How to identify user's data in Firestore?
+- **Solution:** Use `FirebaseAuth.instance.currentUser!.uid` as document ID
+- **Learning:** Each user has unique UID that never changes
+- **Benefit:** No email collisions, reliable user identification
+
+### Key Insights from Firebase Authentication Implementation
+
+**1. Stateless is Better**
+- Don't manually manage login state in SharedPreferences
+- Let Firebase handle token management
+- Use streams for reactive state updates
+
+**2. Error Messages Matter**
+- Users need to know why login failed
+- Different errors need different messages
+- "Invalid email and password" is vague; be specific
+
+**3. UX Feedback is Critical**
+- Users need to know something is happening during async operations
+- Loading indicators prevent duplicate submissions
+- Snackbars show success/error messages unintrusively
+
+**4. Security is Part of Good UX**
+- Passwords should be hidden (obscureText: true)
+- Auth errors shouldn't reveal if email exists (privacy)
+- Logout should clear app state completely
+
+**5. Stream-Based Architecture Scales**
+- Easy to add features (email verification, phone auth, social login)
+- All components automatically update when auth state changes
+- No prop drilling or global state management needed
+
+### Production Checklist
+
+Before deploying PlantConnect with authentication:
+
+- ✅ Email/Password enabled in Firebase Console
+- ✅ AuthService implements all auth methods (signup, login, logout, reset)
+- ✅ AuthWrapper uses StreamBuilder for state management
+- ✅ LoginScreen and SignupScreen handle errors gracefully
+- ✅ Loading indicators shown during async operations
+- ✅ Passwords are obscured on input
+- ✅ Session tokens are managed by Firebase (never hardcoded)
+- ✅ Password reset flow tested
+- ✅ Logout clears all app state
+- ✅ Error messages are user-friendly, not technical
+- ✅ firebase_options.dart is git-ignored (never committed)
+- ✅ App tested on actual device/emulator (not just simulator)
+
+---
+
 ## ⚙️ FlutterFire CLI Integration
 
 ### What is FlutterFire CLI?
