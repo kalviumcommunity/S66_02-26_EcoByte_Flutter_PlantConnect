@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/splash_screen.dart';
 import 'screens/stateless_stateful_demo.dart';
 import 'screens/navigation_demo_home_screen.dart';
 import 'screens/second_screen.dart';
@@ -62,16 +63,19 @@ class AuthWrapper extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: authService.authStateChanges,
       builder: (context, snapshot) {
+        // Show professional splash screen while waiting for Firebase session check
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const SplashScreen();
         }
 
+        // User is logged in → show home screen
         if (snapshot.hasData && snapshot.data != null) {
+          print('✓ User is logged in: ${snapshot.data?.email}');
           return const HomeScreen();
         }
 
+        // No user logged in → show authentication screen
+        print('✗ No user logged in, showing auth screen');
         return const AuthScreen();
       },
     );

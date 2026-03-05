@@ -524,6 +524,458 @@ AuthWrapper detects state change and navigates to LoginScreen
 User is now logged out ✅
 ```
 
+---
+
+## 🔄 Firebase Session Persistence: Auto-Login Flow
+
+### What is Session Persistence?
+
+Session persistence means that when a user logs into the app, they **remain logged in even after closing and reopening the app**. Firebase handles this automatically by:
+
+1. **Storing secure tokens** on the device after successful login
+2. **Auto-refreshing tokens** in the background when they expire
+3. **Auto-invalidating sessions** if the user changes password or deletes their account
+4. **Providing a stream** of auth state changes for reactive navigation
+
+**Key Benefit:** Users login once and don't need to enter credentials until they explicitly logout.
+
+### How Firebase Session Persistence Works
+
+**Behind the scenes:**
+
+```
+User Login
+    ↓
+Firebase creates secure auth tokens
+    ↓
+Tokens stored in device platform-specific storage:
+  • Android → Android Keystore (encrypted)
+  • iOS → Keychain (encrypted)
+  • Web → Secure Cookies
+    ↓
+App restarted by user
+    ↓
+Firebase automatically restores tokens from device storage
+    ↓
+authStateChanges() stream emits current User
+    ↓
+App automatically navigates to HomeScreen
+```
+
+**No Extra Code Needed:**
+- You don't need SharedPreferences or manual token management
+- Firebase does everything automatically
+- Just listen to `authStateChanges()` stream for navigation
+
+### Implementation: authStateChanges() Stream
+
+The key to session persistence is listening to the `authStateChanges()` stream:
+
+**In AuthService (lib/services/auth_service.dart):**
+
+```dart
+import 'package:firebase_auth/firebase_auth.dart';
+
+class AuthService {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // Get the currently logged-in user
+  User? get currentUser => _auth.currentUser;
+
+  // Stream that emits whenever auth state changes
+  // This is the foundation of session persistence
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  // Sign up with email and password
+  Future<User?> signUp(String email, String password) async {
+    try {
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return credential.user; // authStateChanges() will emit this user
+    } on FirebaseAuthException catch (e) {
+      print('SignUp Error: ${e.message}');
+      rethrow;
+    }
+  }
+
+  // Login with email and password
+  Future<User?> login(String email, String password) async {
+    try {
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return credential.user; // authStateChanges() will emit this user
+    } on FirebaseAuthException catch (e) {
+      print('Login Error: ${e.message}');
+      rethrow;
+    }
+  }
+
+  // Logout - clears session
+  Future<void> logout() async {
+    try {
+      await _auth.signOut(); // authStateChanges() will emit null
+    } catch (e) {
+      print('Logout Error: $e');
+      rethrow;
+    }
+  }
+}
+```
+
+### Auto-Login Flow: AuthWrapper
+
+**In main.dart - This is where the magic happens:**
+
+The `AuthWrapper` uses `authStateChanges()` to automatically route to the correct screen:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'screens/splash_screen.dart';
+import 'screens/auth_screen.dart';
+import 'screens/home_screen.dart';
+import 'services/auth_service.dart';
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final authService = AuthService();
+
+    return StreamBuilder<User?>(
+      // Listen to auth state changes
+      stream: authService.authStateChanges,
+      builder: (context, snapshot) {
+        // ✓ WAITING PHASE: Firebase checking if session exists
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          // Show professional splash/loading screen
+          return const SplashScreen();
+        }
+
+        // ✓ USER LOGGED IN: Token found and valid
+        if (snapshot.hasData && snapshot.data != null) {
+          print('✓ User logged in: ${snapshot.data?.email}');
+          return const HomeScreen(); // Auto-login successful
+        }
+
+        // ✓ USER LOGGED OUT: No valid token
+        print('✗ No user session found, showing login');
+        return const AuthScreen(); // Show login screen
+      },
+    );
+  }
+}
+```
+
+**What happens at each phase:**
+
+| Phase | Condition | Action | User Sees |
+|-------|-----------|--------|-----------|
+| **Initialization** | `ConnectionState.waiting` | Firebase checking device storage | Splash Screen with loading animation |
+| **Auto-Login** | `snapshot.hasData != null` | Firebase found valid session token | HomeScreen appears automatically |
+| **No Session** | `snapshot.hasData == null` | No token on device or token expired | AuthScreen (login/signup) |
+
+### Professional Splash Screen
+
+**Location: lib/screens/splash_screen.dart**
+
+While Firebase checks for an existing session, show a polished splash screen:
+
+```dart
+import 'package:flutter/material.dart';
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.green.shade50,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Animated Logo
+            ScaleTransition(
+              scale: _scaleAnimation,
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade400,
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.green.withOpacity(0.3),
+                        blurRadius: 15,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.spa,
+                    color: Colors.white,
+                    size: 60,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
+
+            // App Title
+            FadeTransition(
+              opacity: _fadeAnimation,
+              child: const Text(
+                'PlantConnect',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ),
+
+            // Subtitle
+            FadeTransition(
+              opacity: _fadeAnimation,
+              child: const Text(
+                'Your Plant Care Companion',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 80),
+
+            // Loading Indicator
+            FadeTransition(
+              opacity: _fadeAnimation,
+              child: SizedBox(
+                width: 50,
+                height: 50,
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Colors.green.shade400,
+                  ),
+                  strokeWidth: 3,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+### Session Persistence Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────┐
+│ App Cold Start (Reopened after close)               │
+└────────────────────┬────────────────────────────────┘
+                     ↓
+         ┌─────────────────────────┐
+         │ AuthWrapper builds      │
+         │ StreamBuilder listens   │
+         │ to authStateChanges()   │
+         └────────────┬────────────┘
+                      ↓
+          ┌───────────────────────────────┐
+          │ snapshot.connectionState       │
+          │ == ConnectionState.waiting    │
+          │                               │
+          │ Firebase checking device      │
+          │ storage for valid token       │
+          │                               │
+          │ USER SEES: SplashScreen       │
+          └────────────┬────────────────────┘
+                       ↓
+         ╔════════════════════════════╗
+         ║ DECISION POINT              ║
+         ║ Token found on device?      ║
+         ╚═════┬══════════════════┬════╝
+               │                  │
+        YES    │                  │     NO
+               ↓                  ↓
+    ┌──────────────────┐  ┌──────────────────┐
+    │ snapshot.hasData │  │ snapshot.hasData │
+    │ != null          │  │ == null          │
+    │                  │  │                  │
+    │ Firebase       │  │ No session or   │
+    │ restores user  │  │ token expired   │
+    │                  │  │                  │
+    │ USER SEES:       │  │ USER SEES:       │
+    │ HomeScreen       │  │ AuthScreen       │
+    │ (auto-login)     │  │ (login prompt)   │
+    └──────────────────┘  └──────────────────┘
+```
+
+### Testing Session Persistence
+
+Follow these steps to verify auto-login works correctly:
+
+**Test 1: Basic Auto-Login**
+1. Launch the app
+2. Login with valid email/password
+3. Verify HomeScreen appears
+4. **Close the app completely** (not just background)
+5. **Reopen the app**
+6. **Expected:** HomeScreen appears immediately without showing login screen
+7. ✅ **Success:** Auto-login worked!
+
+**Test 2: App Restart After Force Close**
+1. Login to the app
+2. Go to Settings → Apps → PlantConnect → Force Stop (Android)
+   - Or kill app from task manager (iOS/Windows)
+3. Reopen the app
+4. **Expected:** HomeScreen appears automatically
+5. ✅ **Success:** Session persisted through force close!
+
+**Test 3: Logout Behavior**
+1. You should be logged in (from Test 1 or 2)
+2. Tap the logout button in HomeScreen
+3. Confirm logout when prompted
+4. **Expected:** AuthScreen appears (login screen)
+5. Close app completely
+6. Reopen app
+7. **Expected:** AuthScreen still appears (logout was permanent)
+8. ✅ **Success:** Logout correctly cleared session!
+
+**Test 4: Multiple App Restarts**
+1. Login
+2. Close and reopen app 3+ times
+3. **Expected:** HomeScreen every time, no login prompts
+4. ✅ **Success:** Session reliable across multiple restarts!
+
+### Token Refresh & Expiration
+
+Firebase handles session tokens automatically:
+
+**How Auto-Refresh Works:**
+- Firebase tokens expire after 1 hour
+- Before expiration, Firebase automatically refreshes using refresh tokens
+- No action needed from your code
+- User stays logged in as long as the app/device has internet
+
+**When Sessions Become Invalid:**
+Sessions only become invalid if:
+1. User changes their password → old tokens revoked
+2. User deletes their account → immediate logout
+3. Admin disables user account
+4. User clears app cache/data → tokens deleted locally
+
+**Handling Invalid Sessions:**
+Your code doesn't need to handle this. When a session becomes invalid:
+```dart
+authStateChanges() automatically emits null
+↓
+AuthWrapper detects the change
+↓
+App redirects to AuthScreen
+↓
+User sees login screen and can login again
+```
+
+### Cleanup After Logout
+
+Logout clears everything:
+
+```dart
+// From HomeScreen logout button
+void _handleLogout() async {
+  try {
+    await _authService.logout(); // Calls Firebase.signOut()
+    // Notice: No manual navigation needed!
+    // authStateChanges() emits null automatically
+    // AuthWrapper catches it and navigates to AuthScreen
+  } catch (e) {
+    print('Logout error: $e');
+  }
+}
+```
+
+**What logout does:**
+✅ Clears secure tokens from device storage
+✅ Invalidates current session
+✅ Triggers authStateChanges() to emit null
+✅ AuthWrapper detects change and shows login screen
+
+### Verify Session in Firebase Console
+
+To view active sessions and login history:
+
+1. **Open Firebase Console**
+   - Go to [console.firebase.google.com](https://console.firebase.google.com)
+   - Select project: `plantconnect-7dd0c`
+
+2. **View Authentication Users**
+   - Click **Build** → **Authentication**
+   - Click **Users** tab
+
+3. **Check Each User**
+   - **Email** - User's email address
+   - **UID** - Unique identifier
+   - **Creation Date** - When account created
+   - **Last Sign-In** - When user last logged in (updates on each login/restart)
+
+4. **Verify Auto-Login**
+   - Login to app
+   - Check "Last Sign-In" timestamp
+   - Close and reopen app
+   - Timestamp stays same (local session used, no new signin)
+   - This confirms session persistence is working!
+
+---
+
 ### Verify Authentication in Firebase Console
 
 After users sign up or login:
