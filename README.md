@@ -438,7 +438,581 @@ Architecture lessons:
 
 ---
 
-## 📚 Responsive Design Implementation
+## � Firebase Authentication Implementation
+
+PlantConnect uses **Firebase Authentication** for secure, enterprise-grade user signup and login. This section documents the entire authentication flow and implementation.
+
+### **What is Firebase Authentication?**
+
+Firebase Authentication is a backend service that handles user identity and access control without requiring you to build custom authentication servers. It provides:
+
+- ✅ **Email/Password authentication** - Secure signup and login
+- ✅ **Session management** - Automatic token handling and expiration
+- ✅ **Password reset email flows** - User-initiated password recovery
+- ✅ **Account security** - Automatic lockout after failed attempts
+- ✅ **Built-in encryption** - HTTPS/TLS for all communication
+- ✅ **Compliance ready** - GDPR and security standards built-in
+
+### **Authentication Architecture**
+
+```
+main.dart (Firebase initialization)
+    ↓
+AuthWrapper (Stream-based auth state management)
+    ↓
+AuthScreen (unified login/signup toggle)
+    ↓
+AuthService (Firebase Auth API calls)
+    ↓
+Firebase Authentication Backend
+    ↓
+HomeScreen (if authenticated) OR AuthScreen (if not)
+```
+
+**Key Components:**
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| **AuthService** | `lib/services/auth_service.dart` | Handles all Firebase Auth API calls |
+| **AuthScreen** | `lib/screens/auth_screen.dart` | Unified login/signup UI with toggle |
+| **AuthWrapper** | `lib/main.dart` | Stream-based navigation and state management |
+| **HomeScreen** | `lib/screens/home_screen.dart` | App main screen (only visible when logged in) |
+
+### **AuthService: Core Authentication Logic**
+
+**Location:** `lib/services/auth_service.dart`
+
+The `AuthService` is the single source of truth for all authentication operations:
+
+```dart
+class AuthService {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // Get the currently logged-in user
+  User? get currentUser => _auth.currentUser;
+
+  // Stream of authentication state changes (perfect for navigation)
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  // Sign up with email and password
+  Future<User?> signUp(String email, String password) async {
+    try {
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return credential.user;
+    } on FirebaseAuthException catch (e) {
+      print('SignUp Error Code: ${e.code}');
+      rethrow;
+    }
+  }
+
+  // Login with email and password
+  Future<User?> login(String email, String password) async {
+    try {
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return credential.user;
+    } on FirebaseAuthException catch (e) {
+      print('Login Error: ${e.message}');
+      rethrow;
+    }
+  }
+
+  // Logout
+  Future<void> logout() async {
+    try {
+      await _auth.signOut();
+    } catch (e) {
+      print('Logout Error: $e');
+      rethrow;
+    }
+  }
+
+  // Reset password
+  Future<void> resetPassword(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (e) {
+      print('Reset Password Error: ${e.message}');
+      rethrow;
+    }
+  }
+}
+```
+
+**Key Methods Explained:**
+
+- `signUp(email, password)` - Creates new account in Firebase
+- `login(email, password)` - Authenticates existing user
+- `logout()` - Signs out current user, clears session
+- `resetPassword(email)` - Sends password reset email
+- `authStateChanges` - Returns a Stream that emits User changes (null when logged out)
+
+### **AuthScreen: Unified Login & Signup**
+
+**Location:** `lib/screens/auth_screen.dart`
+
+The `AuthScreen` is the main authentication interface that combines **Login and Sign Up** functionality in a single screen with seamless toggle.
+
+**Features:**
+
+- 🔄 **Toggle Mode** - Switch between login and signup with one tap
+- ✅ **Smart Validation** - Passwords must match, minimum 6 characters
+- 🛡️ **Error Handling** - User-friendly messages for all error scenarios
+- ⏳ **Loading State** - Loading indicator during authentication
+- 👁️ **Password Visibility** - Show/hide passwords for convenience
+- 🔒 **Secure** - Passwords never exposed in error messages
+
+**Login Mode:**
+
+```
+┌──────────────────────┐
+│    PlantConnect      │
+│      Login           │
+├──────────────────────┤
+│ Email:    [_______] │
+│ Password: [****] 👁 │
+│ [Forgot Password?]   │
+│                      │
+│  [Login Button]      │
+│  Sign Up? ➜          │
+└──────────────────────┘
+```
+
+**Sign Up Mode:**
+
+```
+┌──────────────────────┐
+│    PlantConnect      │
+│   Create Account     │
+├──────────────────────┤
+│ Email:    [_______] │
+│ Password: [****] 👁 │
+│ Confirm:  [****] 👁 │
+│ (6+ chars required)  │
+│                      │
+│  [Create Button]     │
+│  ➜ Login?            │
+└──────────────────────┘
+```
+
+**Implementation:**
+
+```dart
+class _AuthScreenState extends State<AuthScreen> {
+  bool _isSignUpMode = false;
+  String? _errorMessage;
+
+  void _toggleAuthMode() {
+    setState(() {
+      _isSignUpMode = !_isSignUpMode;
+      _errorMessage = null; // Clear errors on toggle
+      _emailController.clear();
+      _passwordController.clear();
+      _confirmPasswordController.clear();
+    });
+  }
+
+  void _handleSignUp() async {
+    // Validate password match
+    if (_passwordController.text != _confirmPasswordController.text) {
+      setState(() {
+        _errorMessage = 'Passwords do not match';
+      });
+      return;
+    }
+
+    // Call AuthService
+    final user = await _authService.signUp(email, password);
+    // StreamBuilder automatically navigates to HomeScreen
+  }
+}
+```
+
+**Error Handling:**
+
+```dart
+String _getErrorMessage(String code, String? message) {
+  switch (code) {
+    case 'email-already-in-use':
+      return 'This email is already registered';
+    case 'weak-password':
+      return 'Password must be 6+ characters';
+    case 'wrong-password':
+      return 'Wrong password. Please try again';
+    case 'user-not-found':
+      return 'No account found with this email';
+    case 'invalid-email':
+      return 'Please enter a valid email address';
+    default:
+      return message ?? 'An error occurred';
+  }
+}
+```
+
+### **AuthWrapper: Stream-Based State Management**
+
+**Location:** `lib/main.dart`
+
+The `AuthWrapper` handles automatic navigation based on authentication state:
+
+```dart
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final authService = AuthService();
+
+    return StreamBuilder<User?>(
+      stream: authService.authStateChanges,  // Listen to auth state
+      builder: (context, snapshot) {
+        // Show loading while checking auth state
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        // User is authenticated → show HomeScreen
+        if (snapshot.hasData && snapshot.data != null) {
+          return const HomeScreen();
+        }
+
+        // User is not authenticated → show AuthScreen
+        return const AuthScreen();
+      },
+    );
+  }
+}
+```
+
+**How It Works:**
+
+1. **Listens to Auth Changes** - `authStateChanges()` emits whenever user logs in/out
+2. **Automatic Rebuilds** - Widget rebuilds when stream emits new data
+3. **Navigation Without Routes** - No manual route management needed
+4. **Real-Time Updates** - Changes sync instantly across the app
+
+**Benefits:**
+
+- ✅ No manual navigation code in auth screens
+- ✅ SessionState automatically managed
+- ✅ Works seamlessly with async operations
+- ✅ Prevents infinite navigation loops
+
+### **Authentication Flow: Step-by-Step**
+
+#### **Sign Up Flow**
+
+```
+User taps "Sign Up?" on AuthScreen
+    ↓
+Enters email, password, confirm password
+    ↓
+Taps "Create Account" button
+    ↓
+_handleSignUp() validates passwords match
+    ↓
+authService.signUp(email, password) called
+    ↓
+Firebase creates account in backend
+    ↓
+authStateChanges() stream emits new User object
+    ↓
+StreamBuilder in AuthWrapper detects change
+    ↓
+Widget rebuilds → HomeScreen displayed
+    ↓
+User is now logged in ✅
+```
+
+**Error Scenario:**
+
+```
+Firebase rejects: "email-already-in-use"
+    ↓
+signUp() throws FirebaseAuthException
+    ↓
+catch (e) block catches exception
+    ↓
+_getErrorMessage() returns user-friendly message
+    ↓
+setState() updates UI with error
+    ↓
+Error shown in red container on AuthScreen
+    ↓
+User can try again ✅
+```
+
+#### **Login Flow**
+
+```
+User enters email and password
+    ↓
+Taps "Login" button
+    ↓
+_handleLogin() validates input
+    ↓
+authService.login(email, password) called
+    ↓
+Firebase validates credentials
+    ↓
+✅ Valid: Returns User object
+❌ Invalid: Throws FirebaseAuthException
+    ↓
+authStateChanges() emits new User (or stays null)
+    ↓
+StreamBuilder navigates accordingly
+    ↓
+Success: HomeScreen displayed
+    Fail: Error shown on AuthScreen
+```
+
+#### **Logout Flow**
+
+```
+User taps logout button on HomeScreen
+    ↓
+Confirmation dialog appears
+    ↓
+User confirms logout
+    ↓
+authService.logout() called
+    ↓
+Firebase.signOut() clears session
+    ↓
+authStateChanges() stream emits null (no user)
+    ↓
+StreamBuilder in AuthWrapper detects null
+    ↓
+Widget rebuilds → AuthScreen displayed
+    ↓
+User is now logged out ✅
+```
+
+### **Common Error Codes & Handling**
+
+| Error Code | Meaning | User-Friendly Message | Solution |
+|------------|---------|----------------------|----------|
+| `user-not-found` | Email not registered | "No account with this email" | Sign up first |
+| `wrong-password` | Password incorrect | "Wrong password" | Re-enter password |
+| `email-already-in-use` | Email already registered | "Email already registered" | Login instead |
+| `weak-password` | < 6 characters | "Password too weak" | Use 6+ characters |
+| `invalid-email` | Malformed email | "Invalid email format" | Check email |
+| `user-disabled` | Account disabled by admin | "Account disabled" | Contact support |
+| `too-many-requests` | Too many failed attempts | "Try again later" | Wait 5-10 minutes |
+
+### **Firebase Console: Verifying Authentication**
+
+#### **Step 1: Check Registered Users**
+
+1. Go to [Firebase Console](https://console.firebase.google.com)
+2. Select project `plantconnect-7dd0c`
+3. Click **Authentication** in left sidebar
+4. Click **Users** tab
+
+**You'll see:**
+
+```
+Email              Method              Created Date        Last Sign-In
+────────────────────────────────────────────────────────────────────────
+user@example.com   Email/Password      Feb 26, 2026        Feb 26, 2026
+john@email.com     Email/Password      Feb 27, 2026        Feb 27, 2026
+jane@plantcare.io  Email/Password      Feb 28, 2026        Mar 1, 2026
+```
+
+#### **Step 2: Monitor Authentication Events**
+
+- **Click user email** to see:
+  - User UID (unique identifier)
+  - Email address
+  - Creation date
+  - Last sign-in time
+  - Account status
+
+#### **Step 3: View Sign-in Methods**
+
+- **Sign-in method tab** shows which methods are enabled:
+  - ✅ Email/Password enabled
+  - ❌ Google Sign-in (disabled)
+  - ❌ Phone Number (disabled)
+  - ❌ Apple Sign-in (disabled)
+
+### **Security Features Built-In**
+
+**1. Password Security**
+- Passwords salted and hashed server-side
+- Minimum 6-character enforcement
+- No plain-text storage
+
+**2. Session Management**
+- Auth tokens expire automatically
+- Refresh tokens handle renewal
+- Tokens signed and encrypted
+
+**3. Brute Force Protection**
+- Account locked after 5 failed attempts
+- 5-minute lockout period
+- Prevents password guessing
+
+**4. Communication Security**
+- HTTPS/TLS encryption
+- Man-in-the-middle protection
+- Secure cookie handling
+
+**5. Platform-Specific Security**
+- **Android**: Android Keystore (TEE-backed if available)
+- **iOS**: Keychain with Secure Enclave
+- **Web**: HttpOnly, SameSite secure cookies
+
+### **Firebase Authentication vs. Custom Auth**
+
+| Aspect | Firebase Auth | Custom Auth |
+|--------|---------------|------------|
+| **Setup Time** | 5 minutes | Weeks of coding |
+| **Security** | Enterprise-grade | Manual implementation |
+| **Maintenance** | Firebase handles updates | Your responsibility |
+| **Scalability** | Auto-scales millions of users | Manage infrastructure |
+| **Cost** | Free tier available | Server hosting costs |
+| **Compliance** | GDPR ready | Must implement |
+| **Uptime** | 99.9% SLA | Depends on setup |
+| **Features** | Rich built-in set | Custom implementation |
+
+### **Integration with Firestore**
+
+Once users are authenticated, their UID links to their Firestore data:
+
+```dart
+// Get current user UID
+String userId = FirebaseAuth.instance.currentUser!.uid;
+
+// Store user data in Firestore
+FirebaseFirestore.instance
+  .collection('users')
+  .doc(userId)
+  .set({
+    'email': user.email,
+    'displayName': 'User Name',
+    'createdAt': DateTime.now(),
+  });
+
+// Query user-specific notes
+FirebaseFirestore.instance
+  .collection('notes')
+  .where('uid', isEqualTo: userId)
+  .snapshots()
+  .listen((snapshot) {
+    // Real-time updates of user's notes
+  });
+```
+
+### **Testing Authentication**
+
+#### **Test Sign Up**
+
+```
+1. Open AuthScreen
+2. Toggle to "Sign Up?" mode
+3. Enter: email@example.com
+4. Enter password: Test@123
+5. Confirm password: Test@123
+6. Tap "Create Account"
+7. Verify: App navigates to HomeScreen ✅
+8. Check: User appears in Firebase Console ✅
+```
+
+#### **Test Login**
+
+```
+1. Logout from HomeScreen
+2. Go back to AuthScreen
+3. Enter: email@example.com
+4. Enter password: Test@123
+5. Tap "Login"
+6. Verify: App navigates to HomeScreen ✅
+```
+
+#### **Test Error Handling**
+
+```
+Test 1: Wrong Password
+  - Login with wrong password
+  - Error: "Wrong password. Please try again" ✅
+
+Test 2: Account Not Found
+  - Login with unregistered email
+  - Error: "No account found with this email" ✅
+
+Test 3: Password Mismatch (Sign Up)
+  - Sign up with mismatched passwords
+  - Error: "Passwords do not match" ✅
+
+Test 4: Weak Password
+  - Try password < 6 characters
+  - Error: "Password must be 6+ characters" ✅
+```
+
+#### **Test Logout**
+
+```
+1. Logged into HomeScreen
+2. Tap logout button
+3. Confirmation dialog appears
+4. Tap "Logout" button
+5. Verify: App returns to AuthScreen ✅
+6. Session cleared: Can't access HomeScreen without login ✅
+```
+
+### **🎯 Key Insights from Authentication Implementation**
+
+**1. Streams are Perfect for Auth State**
+- `authStateChanges()` provides real-time updates
+- Automatically notifies UI when login/logout occurs
+- No manual polling or state management needed
+
+**2. Unified Auth UI Improves UX**
+- Single screen with toggle is faster than navigation
+- Users appreciate smooth transitions
+- Less stack pollution from navigation
+
+**3. Firebase Handles Security So You Don't**
+- No need to implement password hashing
+- No need to manage tokens manually
+- No need to worry about security patches
+
+**4. Error Handling is Critical**
+- Different error codes need different messages
+- Specific errors help users fix problems
+- Generic errors frustrate users
+
+**5. Architecture Matters for Scalability**
+- AuthService separates Firebase logic from UI
+- Easy to add more auth methods (Google, Apple)
+- Clean code is maintainable code
+
+### **Next Steps for Production**
+
+Before deploying PlantConnect:
+
+- ✅ Enable Email/Password auth in Firebase Console
+- ✅ Test on real Android/iOS devices
+- ✅ Test all error scenarios
+- ✅ Add email verification for signup
+- ✅ Implement password reset flow
+- ✅ Add user profile management
+- ✅ Set up Firestore Security Rules
+- ✅ Enable reCAPTCHA to prevent abuse
+- ✅ Test on actual Firebase project (not emulator)
+- ✅ Review security checklist before production
+
+---
+
+## �📚 Responsive Design Implementation
 
 PlantConnect implements a **fully responsive layout** that adapts seamlessly across all device sizes and orientations.
 

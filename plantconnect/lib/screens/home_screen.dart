@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
-import 'login_screen.dart';
 import '../widgets/info_card.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -226,14 +225,37 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
             onPressed: () async {
-              await _authService.logout();
-              if (mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false,
-                );
-              }
+              // Show confirmation dialog
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Logout'),
+                  content: const Text('Are you sure you want to logout?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        await _authService.logout();
+                        // AuthWrapper's StreamBuilder will automatically handle navigation
+                        // when authStateChanges becomes null
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                      ),
+                      child: const Text(
+                        'Logout',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              );
             },
           ),
         ],
