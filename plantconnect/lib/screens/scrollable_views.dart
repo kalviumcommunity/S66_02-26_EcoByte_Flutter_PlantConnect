@@ -18,7 +18,11 @@ class _ScrollableViewsState extends State<ScrollableViews> {
     {'title': 'Settings', 'icon': Icons.settings, 'color': Colors.green},
     {'title': 'Profile', 'icon': Icons.person, 'color': Colors.purple},
     {'title': 'Messages', 'icon': Icons.message, 'color': Colors.orange},
-    {'title': 'Notifications', 'icon': Icons.notifications, 'color': Colors.pink},
+    {
+      'title': 'Notifications',
+      'icon': Icons.notifications,
+      'color': Colors.pink,
+    },
     {'title': 'Favorites', 'icon': Icons.favorite, 'color': Colors.cyan},
     {'title': 'Download', 'icon': Icons.download, 'color': Colors.amber},
   ];
@@ -52,10 +56,7 @@ class _ScrollableViewsState extends State<ScrollableViews> {
                   const SizedBox(height: 5),
                   Text(
                     'Swipe left to see more cards',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -75,10 +76,7 @@ class _ScrollableViewsState extends State<ScrollableViews> {
             // DIVIDER
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-              child: Divider(
-                thickness: 2,
-                color: Colors.deepPurple.shade100,
-              ),
+              child: Divider(thickness: 2, color: Colors.deepPurple.shade100),
             ),
 
             // 2. VERTICAL LISTVIEW SECTION
@@ -98,10 +96,7 @@ class _ScrollableViewsState extends State<ScrollableViews> {
                   const SizedBox(height: 5),
                   Text(
                     'Scroll down for more items',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -116,10 +111,8 @@ class _ScrollableViewsState extends State<ScrollableViews> {
               child: ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
                 itemCount: 8,
-                separatorBuilder: (context, index) => Divider(
-                  height: 1,
-                  color: Colors.deepPurple.shade100,
-                ),
+                separatorBuilder: (context, index) =>
+                    Divider(height: 1, color: Colors.deepPurple.shade100),
                 itemBuilder: (context, index) {
                   return _buildVerticalListItem(index);
                 },
@@ -129,10 +122,7 @@ class _ScrollableViewsState extends State<ScrollableViews> {
             // DIVIDER
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-              child: Divider(
-                thickness: 2,
-                color: Colors.deepPurple.shade100,
-              ),
+              child: Divider(thickness: 2, color: Colors.deepPurple.shade100),
             ),
 
             // 3. GRIDVIEW SECTION
@@ -152,10 +142,7 @@ class _ScrollableViewsState extends State<ScrollableViews> {
                   const SizedBox(height: 5),
                   Text(
                     'Tap any tile to interact',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -195,10 +182,7 @@ class _ScrollableViewsState extends State<ScrollableViews> {
                   const SizedBox(height: 5),
                   Text(
                     'Grid adapts to screen width',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -304,25 +288,15 @@ class _ScrollableViewsState extends State<ScrollableViews> {
           color: Colors.deepPurple.shade100,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(
-          icons[index],
-          color: Colors.deepPurple,
-          size: 22,
-        ),
+        child: Icon(icons[index], color: Colors.deepPurple, size: 22),
       ),
       title: Text(
         titles[index],
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
-        ),
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
       ),
       subtitle: Text(
         'Learn more about ${titles[index].toLowerCase()}',
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.grey[600],
-        ),
+        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
       ),
       trailing: Icon(
         Icons.arrow_forward_ios,
@@ -368,11 +342,7 @@ class _ScrollableViewsState extends State<ScrollableViews> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              item['icon'] as IconData,
-              size: 48,
-              color: Colors.white,
-            ),
+            Icon(item['icon'] as IconData, size: 48, color: Colors.white),
             const SizedBox(height: 12),
             Text(
               item['title'] as String,
@@ -408,10 +378,7 @@ class _ScrollableViewsState extends State<ScrollableViews> {
         return Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                Colors.deepPurple.shade300,
-                Colors.deepPurple.shade600,
-              ],
+              colors: [Colors.deepPurple.shade300, Colors.deepPurple.shade600],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),

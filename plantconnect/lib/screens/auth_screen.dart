@@ -17,7 +17,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _nameController = TextEditingController();
   final _authService = AuthService();
   final _firestoreService = FirestoreService();
-  
+
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -63,7 +63,7 @@ class _AuthScreenState extends State<AuthScreen> {
         // Clear fields on successful login
         _emailController.clear();
         _passwordController.clear();
-        
+
         // AuthWrapper's StreamBuilder will automatically handle navigation
         // No need for manual navigation
       }
@@ -87,8 +87,8 @@ class _AuthScreenState extends State<AuthScreen> {
   /// Handle Sign Up Logic
   void _handleSignUp() async {
     // Validation
-    if (_emailController.text.isEmpty || 
-        _passwordController.text.isEmpty || 
+    if (_emailController.text.isEmpty ||
+        _passwordController.text.isEmpty ||
         _confirmPasswordController.text.isEmpty ||
         _nameController.text.isEmpty) {
       setState(() {
@@ -136,7 +136,7 @@ class _AuthScreenState extends State<AuthScreen> {
         _passwordController.clear();
         _confirmPasswordController.clear();
         _nameController.clear();
-        
+
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -144,7 +144,7 @@ class _AuthScreenState extends State<AuthScreen> {
             duration: Duration(seconds: 2),
           ),
         );
-        
+
         // AuthWrapper's StreamBuilder will automatically handle navigation
       }
     } on FirebaseAuthException catch (e) {
@@ -223,22 +223,16 @@ class _AuthScreenState extends State<AuthScreen> {
             // App Title
             Text(
               _isSignUpMode ? 'Create Your Account' : 'Welcome to PlantConnect',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             // Subtitle
             Text(
-              _isSignUpMode 
+              _isSignUpMode
                   ? 'Join our plant community'
                   : 'Connect with nature, grow together',
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-              ),
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 40),
@@ -317,9 +311,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 prefixIcon: const Icon(Icons.lock),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _obscurePassword 
-                        ? Icons.visibility_off 
-                        : Icons.visibility,
+                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
                   ),
                   onPressed: () {
                     setState(() {
@@ -352,8 +344,8 @@ class _AuthScreenState extends State<AuthScreen> {
                       prefixIcon: const Icon(Icons.lock),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscureConfirmPassword 
-                              ? Icons.visibility_off 
+                          _obscureConfirmPassword
+                              ? Icons.visibility_off
                               : Icons.visibility,
                         ),
                         onPressed: () {
@@ -375,10 +367,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   const SizedBox(height: 8),
                   Text(
                     'Password must be at least 6 characters',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 15),
                 ],
@@ -389,14 +378,18 @@ class _AuthScreenState extends State<AuthScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: _isLoading ? null : () {
-                    // TODO: Implement forgot password flow
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Password reset feature coming soon'),
-                      ),
-                    );
-                  },
+                  onPressed: _isLoading
+                      ? null
+                      : () {
+                          // TODO: Implement forgot password flow
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Password reset feature coming soon',
+                              ),
+                            ),
+                          );
+                        },
                   child: Text(
                     'Forgot Password?',
                     style: TextStyle(color: Colors.green[700]),
@@ -410,8 +403,8 @@ class _AuthScreenState extends State<AuthScreen> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: _isLoading 
-                    ? null 
+                onPressed: _isLoading
+                    ? null
                     : (_isSignUpMode ? _handleSignUp : _handleLogin),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green[700],
@@ -446,8 +439,8 @@ class _AuthScreenState extends State<AuthScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  _isSignUpMode 
-                      ? 'Already have an account? ' 
+                  _isSignUpMode
+                      ? 'Already have an account? '
                       : 'Don\'t have an account? ',
                   style: const TextStyle(fontSize: 14),
                 ),

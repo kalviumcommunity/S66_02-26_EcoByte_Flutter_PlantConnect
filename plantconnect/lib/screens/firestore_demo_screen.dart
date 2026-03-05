@@ -71,10 +71,7 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
                     padding: const EdgeInsets.all(8),
                     child: const Text(
                       'Code: FirebaseFirestore.instance.collection("items").snapshots()',
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                      ),
+                      style: TextStyle(fontFamily: 'monospace', fontSize: 11),
                     ),
                   ),
                 ],
@@ -97,7 +94,11 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 48,
+                      ),
                       const SizedBox(height: 16),
                       Text('Error: ${snapshot.error}'),
                       const SizedBox(height: 16),
@@ -116,7 +117,11 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.inbox_outlined, size: 48, color: Colors.grey),
+                      const Icon(
+                        Icons.inbox_outlined,
+                        size: 48,
+                        color: Colors.grey,
+                      ),
                       const SizedBox(height: 16),
                       const Text('No data available'),
                       const SizedBox(height: 16),
@@ -139,7 +144,10 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
                   final data = item.data() as Map<String, dynamic>;
 
                   return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     child: ListTile(
                       leading: const Icon(Icons.leaf, color: Colors.green),
                       title: Text(data['name'] ?? 'Unknown'),
@@ -202,9 +210,9 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
             future: _documentIdController.text.isEmpty
                 ? Future.value(null as DocumentSnapshot?)
                 : FirebaseFirestore.instance
-                    .collection('items')
-                    .doc(_documentIdController.text)
-                    .get(),
+                      .collection('items')
+                      .doc(_documentIdController.text)
+                      .get(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -228,7 +236,11 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 48,
+                      ),
                       const SizedBox(height: 16),
                       Text('Error: ${snapshot.error}'),
                     ],
@@ -321,10 +333,7 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
                     padding: const EdgeInsets.all(8),
                     child: const Text(
                       'Code: collection("items").where("status", isEqualTo: "available").snapshots()',
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                      ),
+                      style: TextStyle(fontFamily: 'monospace', fontSize: 11),
                     ),
                   ),
                 ],
@@ -361,9 +370,15 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
                   final createdAt = data['createdAt'] as Timestamp?;
 
                   return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     child: ListTile(
-                      leading: const Icon(Icons.inventory_2, color: Colors.blue),
+                      leading: const Icon(
+                        Icons.inventory_2,
+                        color: Colors.blue,
+                      ),
                       title: Text(data['name'] ?? 'Unknown'),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -412,9 +427,9 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
         const SnackBar(content: Text('Sample data added successfully!')),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error adding data: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error adding data: $e')));
     }
   }
 
@@ -425,9 +440,9 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
         const SnackBar(content: Text('Item deleted successfully!')),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting item: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error deleting item: $e')));
     }
   }
 

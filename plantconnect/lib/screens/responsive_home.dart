@@ -87,9 +87,9 @@ class _ResponsiveHomeState extends State<ResponsiveHome> {
                   Text(
                     'Featured Plants',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontSize: isTablet ? 28 : 24,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontSize: isTablet ? 28 : 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   SizedBox(height: isTablet ? 20 : 16),
 
@@ -155,10 +155,7 @@ class _ResponsiveHomeState extends State<ResponsiveHome> {
       actions: [
         Padding(
           padding: EdgeInsets.all(screenWidth > 600 ? 16 : 12),
-          child: Icon(
-            Icons.notifications,
-            size: screenWidth > 600 ? 28 : 24,
-          ),
+          child: Icon(Icons.notifications, size: screenWidth > 600 ? 28 : 24),
         ),
       ],
     );
@@ -217,9 +214,9 @@ class _ResponsiveHomeState extends State<ResponsiveHome> {
       ),
       child: InkWell(
         onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Tapped: ${plant.name}')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Tapped: ${plant.name}')));
         },
         child: Padding(
           padding: EdgeInsets.all(isTablet ? 16 : 12),
@@ -316,11 +313,7 @@ class _ResponsiveHomeState extends State<ResponsiveHome> {
   ) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: isTablet ? 16 : 12,
-          color: Colors.green[600],
-        ),
+        Icon(icon, size: isTablet ? 16 : 12, color: Colors.green[600]),
         SizedBox(width: isTablet ? 6 : 4),
         Flexible(
           child: Text(
@@ -348,9 +341,9 @@ class _ResponsiveHomeState extends State<ResponsiveHome> {
             Text(
               'Why PlantConnect?',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontSize: isTablet ? 24 : 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                fontSize: isTablet ? 24 : 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             SizedBox(height: isTablet ? 20 : 16),
             isMobile
@@ -440,10 +433,7 @@ class _ResponsiveHomeState extends State<ResponsiveHome> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              emoji,
-              style: TextStyle(fontSize: isTablet ? 32 : 28),
-            ),
+            Text(emoji, style: TextStyle(fontSize: isTablet ? 32 : 28)),
             SizedBox(height: isTablet ? 8 : 6),
             Text(
               title,
@@ -477,12 +467,8 @@ class _ResponsiveHomeState extends State<ResponsiveHome> {
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.white,
-          padding: EdgeInsets.symmetric(
-            vertical: screenWidth > 600 ? 16 : 12,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          padding: EdgeInsets.symmetric(vertical: screenWidth > 600 ? 16 : 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Text(
           label,
@@ -505,22 +491,13 @@ class _ResponsiveHomeState extends State<ResponsiveHome> {
         });
       },
       items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home),
-          label: 'Home',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.favorite),
-          label: 'Favorites',
-        ),
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+        BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favorites'),
         BottomNavigationBarItem(
           icon: Icon(Icons.calendar_today),
           label: 'Schedule',
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person),
-          label: 'Profile',
-        ),
+        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
       ],
     );
   }

@@ -80,27 +80,17 @@ class _LoginScreenState extends State<LoginScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const SizedBox(height: 60),
-            Icon(
-              Icons.eco,
-              size: 100,
-              color: Colors.green[700],
-            ),
+            Icon(Icons.eco, size: 100, color: Colors.green[700]),
             const SizedBox(height: 30),
             const Text(
               'Welcome to PlantConnect',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 10),
             const Text(
               'Connect with nature, grow together',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 40),
@@ -196,7 +186,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 GestureDetector(
                   onTap: () {
                     Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (context) => const SignupScreen()),
+                      MaterialPageRoute(
+                        builder: (context) => const SignupScreen(),
+                      ),
                       (route) => false,
                     );
                   },

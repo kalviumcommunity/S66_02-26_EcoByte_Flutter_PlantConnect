@@ -14,7 +14,10 @@ class FirestoreService {
   }
 
   // CREATE: Add a note/document to a collection
-  Future<String?> addDocument(String collection, Map<String, dynamic> data) async {
+  Future<String?> addDocument(
+    String collection,
+    Map<String, dynamic> data,
+  ) async {
     try {
       final docRef = await _db.collection(collection).add({
         ...data,
@@ -41,7 +44,10 @@ class FirestoreService {
   // READ: Get all documents from a collection as a stream
   Stream<QuerySnapshot> getCollectionStream(String collection) {
     try {
-      return _db.collection(collection).orderBy('createdAt', descending: true).snapshots();
+      return _db
+          .collection(collection)
+          .orderBy('createdAt', descending: true)
+          .snapshots();
     } catch (e) {
       print('Error getting collection stream: $e');
       rethrow;

@@ -88,10 +88,22 @@ class ResponsiveLayout extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _buildInfoRow('Device Type:', isTablet ? 'Tablet' : 'Phone'),
-                    _buildInfoRow('Orientation:', isLandscape ? 'Landscape' : 'Portrait'),
-                    _buildInfoRow('Width:', '${screenWidth.toStringAsFixed(0)} px'),
-                    _buildInfoRow('Height:', '${screenHeight.toStringAsFixed(0)} px'),
+                    _buildInfoRow(
+                      'Device Type:',
+                      isTablet ? 'Tablet' : 'Phone',
+                    ),
+                    _buildInfoRow(
+                      'Orientation:',
+                      isLandscape ? 'Landscape' : 'Portrait',
+                    ),
+                    _buildInfoRow(
+                      'Width:',
+                      '${screenWidth.toStringAsFixed(0)} px',
+                    ),
+                    _buildInfoRow(
+                      'Height:',
+                      '${screenHeight.toStringAsFixed(0)} px',
+                    ),
                   ],
                 ),
               ),
@@ -138,10 +150,7 @@ class ResponsiveLayout extends StatelessWidget {
                 const SizedBox(height: 5),
                 const Text(
                   'Flexible widget',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.blue,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.blue),
                 ),
               ],
             ),
@@ -159,11 +168,7 @@ class ResponsiveLayout extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.analytics,
-                  size: 48,
-                  color: Colors.green.shade700,
-                ),
+                Icon(Icons.analytics, size: 48, color: Colors.green.shade700),
                 const SizedBox(height: 10),
                 const Text(
                   'Right Panel',
@@ -176,10 +181,7 @@ class ResponsiveLayout extends StatelessWidget {
                 const SizedBox(height: 5),
                 const Text(
                   'Flexible widget',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.green,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.green),
                 ),
               ],
             ),
@@ -221,10 +223,7 @@ class ResponsiveLayout extends StatelessWidget {
               const SizedBox(height: 5),
               const Text(
                 'Full width on mobile',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.blue,
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.blue),
               ),
             ],
           ),
@@ -241,11 +240,7 @@ class ResponsiveLayout extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.analytics,
-                size: 48,
-                color: Colors.green.shade700,
-              ),
+              Icon(Icons.analytics, size: 48, color: Colors.green.shade700),
               const SizedBox(height: 10),
               const Text(
                 'Panel 2',
@@ -258,10 +253,7 @@ class ResponsiveLayout extends StatelessWidget {
               const SizedBox(height: 5),
               const Text(
                 'Full width on mobile',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.green,
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.green),
               ),
             ],
           ),
@@ -346,11 +338,7 @@ class ResponsiveLayout extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.favorite,
-                    color: colors[index],
-                    size: 32,
-                  ),
+                  Icon(Icons.favorite, color: colors[index], size: 32),
                   const SizedBox(height: 8),
                   Text(
                     'Item ${index + 1}',

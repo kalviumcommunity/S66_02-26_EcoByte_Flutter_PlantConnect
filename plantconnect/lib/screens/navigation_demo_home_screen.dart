@@ -34,19 +34,13 @@ class NavigationDemoHomeScreen extends StatelessWidget {
                 'The Navigator widget manages the app\'s screen stack,\n'
                 'allowing you to push and pop screens.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.black87,
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.black87),
               ),
             ),
             const SizedBox(height: 40),
             ElevatedButton(
               onPressed: () {
-                Navigator.pushNamed(
-                  context,
-                  '/navigation_demo_second',
-                );
+                Navigator.pushNamed(context, '/navigation_demo_second');
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
