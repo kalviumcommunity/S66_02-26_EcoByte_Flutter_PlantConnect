@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
+import '../services/firestore_service.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -13,7 +14,9 @@ class _AuthScreenState extends State<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _nameController = TextEditingController();
   final _authService = AuthService();
+  final _firestoreService = FirestoreService();
   
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -26,7 +29,14 @@ class _AuthScreenState extends State<AuthScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _nameController.dispose();
     super.dispose();
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red[700]),
+    );
   }
 
   /// Handle Login Logic
@@ -79,7 +89,8 @@ class _AuthScreenState extends State<AuthScreen> {
     // Validation
     if (_emailController.text.isEmpty || 
         _passwordController.text.isEmpty || 
-        _confirmPasswordController.text.isEmpty) {
+        _confirmPasswordController.text.isEmpty ||
+        _nameController.text.isEmpty) {
       setState(() {
         _errorMessage = 'Please fill in all fields';
       });
@@ -112,10 +123,19 @@ class _AuthScreenState extends State<AuthScreen> {
       );
 
       if (user != null && mounted) {
+        // Add user data to Firestore
+        await _firestoreService.addUserData(user.uid, {
+          'uid': user.uid,
+          'name': _nameController.text.trim(),
+          'email': _emailController.text.trim(),
+          'createdAt': DateTime.now(),
+        });
+
         // Clear fields on successful signup
         _emailController.clear();
         _passwordController.clear();
         _confirmPasswordController.clear();
+        _nameController.clear();
         
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
@@ -174,6 +194,7 @@ class _AuthScreenState extends State<AuthScreen> {
       _emailController.clear();
       _passwordController.clear();
       _confirmPasswordController.clear();
+      _nameController.clear();
     });
   }
 
@@ -195,15 +216,15 @@ class _AuthScreenState extends State<AuthScreen> {
             // Logo
             Icon(
               Icons.eco,
-              size: 100,
+              size: _isSignUpMode ? 80 : 100,
               color: Colors.green[700],
             ),
             const SizedBox(height: 20),
             // App Title
-            const Text(
-              'PlantConnect',
-              style: TextStyle(
-                fontSize: 32,
+            Text(
+              _isSignUpMode ? 'Create Your Account' : 'Welcome to PlantConnect',
+              style: const TextStyle(
+                fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
@@ -245,6 +266,26 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               ),
             const SizedBox(height: 20),
+
+            if (_isSignUpMode) ...[
+              TextField(
+                controller: _nameController,
+                enabled: !_isLoading,
+                decoration: InputDecoration(
+                  labelText: 'Full Name',
+                  hintText: 'Enter your full name',
+                  prefixIcon: const Icon(Icons.person),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 15),
+            ],
 
             // Email TextField
             TextField(
