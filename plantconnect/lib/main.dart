@@ -14,6 +14,7 @@ import 'screens/state_management_demo.dart';
 import 'screens/asset_demo_screen.dart';
 import 'screens/animations_demo.dart';
 import 'screens/rotate_logo_demo.dart';
+import 'screens/firestore_demo_screen.dart';
 import 'services/auth_service.dart';
 import 'firebase_options.dart';
 
@@ -47,6 +48,7 @@ class MyApp extends StatelessWidget {
         '/assets_demo': (_) => const AssetDemoScreen(),
         '/animations_demo': (_) => const AnimationsDemoScreen(),
         '/rotate_demo': (_) => const RotateLogoDemo(),
+        '/firestore_demo': (_) => const FirestoreDemoScreen(),
       },
       debugShowCheckedModeBanner: false,
     );

@@ -1887,3 +1887,348 @@ PR title:
 ```
 
 Add a brief summary and at least one screenshot or GIF to your PR description.
+
+---
+
+## ☁️ Cloud Firestore Read Operations
+
+### Overview
+
+Cloud Firestore is Firebase's real-time NoSQL database. PlantConnect uses it to store and retrieve plant data, user information, and activity logs. This section covers **reading data** from Firestore in various ways.
+
+### Dependencies
+
+Cloud Firestore dependency already added to `pubspec.yaml`:
+
+```yaml
+dependencies:
+  cloud_firestore: ^5.0.0
+```
+
+Firestore is automatically initialized in `main.dart` alongside Firebase:
+
+```dart
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print('Firebase has been successfully initialized!');
+  runApp(const MyApp());
+}
+```
+
+### Firestore Read Operations: Four Main Methods
+
+#### 1️⃣ Get a Single Document (One-Time Read)
+
+Use `get()` when you need data **only once** (no live updates):
+
+```dart
+final doc = await FirebaseFirestore.instance
+    .collection('users')
+    .doc('userId')
+    .get();
+
+print(doc.data());  // Returns Map<String, dynamic>?
+```
+
+**When to use:**
+- Load user profile when opening settings
+- Fetch product details on demand
+- One-time data retrieval
+
+#### 2️⃣ Get All Documents in a Collection
+
+Retrieve **all documents** from a collection:
+
+```dart
+final snapshot = await FirebaseFirestore.instance
+    .collection('products')
+    .get();
+
+for (var doc in snapshot.docs) {
+  print(doc.data());
+}
+```
+
+**When to use:**
+- Load entire product catalog on startup
+- Fetch all user's notes
+- One-time bulk data retrieval
+
+#### 3️⃣ Real-Time Stream (Recommended for UI)
+
+Use `snapshots()` for **live updates** that automatically update your UI:
+
+```dart
+FirebaseFirestore.instance
+  .collection('tasks')
+  .snapshots()
+```
+
+**Advantages:**
+- ✅ UI updates automatically when data changes
+- ✅ No manual refresh needed
+- ✅ Multiple listeners on same data automatically share subscription
+- ✅ Real-time collaboration (see changes from other users)
+
+#### 4️⃣ Query with Filters
+
+Filter data with `where()` clauses:
+
+```dart
+FirebaseFirestore.instance
+  .collection('orders')
+  .where('status', isEqualTo: 'pending')
+  .where('userId', isEqualTo: 'user123')
+  .orderBy('createdAt', descending: true)
+  .snapshots();
+```
+
+**Common query operations:**
+- `isEqualTo` - Exact match
+- `isLessThan` / `isGreaterThan` - Numeric comparisons
+- `arrayContains` - Check if array contains value
+- `isNotEqualTo` - Not equal
+- `orderBy()` - Sort results
+- `limit()` - Limit number of documents
+
+### Implementation: FirestoreService
+
+**Location:** `lib/services/firestore_service.dart`
+
+The `FirestoreService` provides clean abstractions for all Firestore operations (already implemented with READ operations).
+
+### Display Data in UI: StreamBuilder
+
+**Real-time listening** to Firestore changes with automatic UI updates:
+
+```dart
+StreamBuilder<QuerySnapshot>(
+  stream: FirebaseFirestore.instance.collection('tasks').snapshots(),
+  builder: (context, snapshot) {
+    if (!snapshot.hasData) return const CircularProgressIndicator();
+    final tasks = snapshot.data!.docs;
+    return ListView.builder(
+      itemCount: tasks.length,
+      itemBuilder: (context, index) {
+        final task = tasks[index];
+        final data = task.data() as Map<String, dynamic>;
+        return ListTile(
+          title: Text(data['title'] ?? 'Unknown'),
+          subtitle: Text(data['description'] ?? ''),
+        );
+      },
+    );
+  },
+);
+```
+
+### Read Single Document: FutureBuilder
+
+Use **FutureBuilder** for one-time reads (no live updates):
+
+```dart
+FutureBuilder<DocumentSnapshot>(
+  future: FirebaseFirestore.instance
+      .collection('users')
+      .doc('userId')
+      .get(),
+  builder: (context, snapshot) {
+    if (!snapshot.hasData) return const CircularProgressIndicator();
+    final data = snapshot.data!.data() as Map<String, dynamic>?;
+    return Text("Name: ${data?['name'] ?? 'Unknown'}");
+  },
+);
+```
+
+### Safe Data Access: Handling Null/Missing Data
+
+**Always validate data** to prevent crashes:
+
+```dart
+if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+  return Center(child: Text('No data available'));
+}
+
+final doc = snapshot.data!.docs.first;
+final data = doc.data() as Map<String, dynamic>;
+
+// Safe access with null coalescing
+final name = data['name'] ?? 'Unknown';
+final description = data['description'] ?? 'No description';
+final age = (data['age'] as num?)?.toInt() ?? 0;
+
+// Handle Timestamps
+final createdAt = data['createdAt'] as Timestamp?;
+if (createdAt != null) {
+  print('Created: ${createdAt.toDate()}');
+}
+```
+
+### Connecting UI with Firestore Data
+
+**Example: Real-Time Plant List**
+
+```dart
+StreamBuilder<QuerySnapshot>(
+  stream: firestoreService.getCollectionStream('plants'),
+  builder: (context, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final plants = snapshot.data?.docs ?? [];
+    if (plants.isEmpty) {
+      return const Center(child: Text('No plants found'));
+    }
+
+    return ListView.builder(
+      itemCount: plants.length,
+      itemBuilder: (context, index) {
+        final data = plants[index].data() as Map<String, dynamic>;
+        return Card(
+          child: ListTile(
+            title: Text(data['name'] ?? 'Unknown'),
+            subtitle: Text(data['species'] ?? ''),
+          ),
+        );
+      },
+    );
+  },
+);
+```
+
+### Firestore Demo Screen
+
+**Location:** `lib/screens/firestore_demo_screen.dart`
+
+A complete demo with three tabs showing all read methods:
+- **Tab 1:** Real-time streams with StreamBuilder
+- **Tab 2:** Single document reads with FutureBuilder
+- **Tab 3:** Filtered queries with ordering
+
+Features:
+- ✅ Add sample data button
+- ✅ Real-time updates
+- ✅ Comprehensive error handling
+- ✅ Type-safe null handling
+
+**Navigation:** Route `/firestore_demo` from main.dart
+
+### Testing in Firebase Console
+
+1. Open Firebase Console → `plantconnect-7dd0c`
+2. Go to **Firestore Database** → **Data** tab
+3. Create collection `items` with sample documents
+4. Run the app and navigate to Firestore Demo
+5. Add data → See instant updates
+6. Edit/delete in console → UI updates automatically ✅
+
+### Code Snippets Summary
+
+#### Stream Read (Live Updates)
+```dart
+StreamBuilder<QuerySnapshot>(
+  stream: FirebaseFirestore.instance.collection('items').snapshots(),
+  builder: (context, snapshot) {
+    if (!snapshot.hasData) return const CircularProgressIndicator();
+    return ListView.builder(
+      itemCount: snapshot.data!.docs.length,
+      itemBuilder: (context, index) {
+        final data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
+        return ListTile(title: Text(data['name'] ?? ''));
+      },
+    );
+  },
+);
+```
+
+#### Document Read (One-Time)
+```dart
+FutureBuilder<DocumentSnapshot>(
+  future: FirebaseFirestore.instance.collection('items').doc('docId').get(),
+  builder: (context, snapshot) {
+    if (!snapshot.hasData) return const CircularProgressIndicator();
+    final data = snapshot.data!.data() as Map<String, dynamic>;
+    return Text('Name: ${data['name']}');
+  },
+);
+```
+
+#### Filtered Query
+```dart
+StreamBuilder<QuerySnapshot>(
+  stream: FirebaseFirestore.instance
+      .collection('items')
+      .where('status', isEqualTo: 'available')
+      .orderBy('createdAt', descending: true)
+      .snapshots(),
+  builder: (context, snapshot) {
+    // Same pattern as Stream Read above
+  },
+);
+```
+
+### 📝 Reflection: Firestore Read Operations
+
+#### Which Read Method Did You Use and Why?
+
+We implemented:
+1. **Real-Time Streams** - For live plant list and activity feeds
+2. **FutureBuilder** - For loading user profiles and single items
+3. **Filtered Queries** - For showing available plants only
+
+#### Why Real-Time Streams Are Useful
+
+- ✅ Instant collaboration - Multiple users see changes immediately
+- ✅ Dynamic updates - No manual refresh needed
+- ✅ Better UX - Data always feels current
+- ✅ Efficient - Firestore handles connection management
+
+#### Challenges Faced
+
+1. **Stream Lifecycle** - StreamBuilder handles start/stop automatically
+2. **Null Data** - Use null coalescing `??` for safe access
+3. **Large Collections** - Add `limit()` and `where()` to queries
+4. **Type Safety** - Explicit casting with fallbacks for all fields
+5. **Connection States** - Handle waiting, active, error, and done states
+
+### Security Rules
+
+Development rules (allow all - TESTING ONLY):
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
+```
+
+Production rules (restrict access):
+```javascript
+match /users/{userId} {
+  allow read: if request.auth.uid == userId;
+}
+match /plants/{plantId} {
+  allow read: if true;
+  allow write: if request.auth.uid == resource.data.createdBy;
+}
+```
+
+### Commit Message
+
+```
+feat: implemented Firestore read operations with StreamBuilder and FutureBuilder
+docs: added comprehensive Firestore read operations guide to README
+```
+
+### PR Title
+
+```
+[Sprint-2] Cloud Firestore Read Operations – Display Live Data from Firestore
+```
+
+````
