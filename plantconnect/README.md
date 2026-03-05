@@ -216,14 +216,19 @@ main.dart (Firebase initialization)
     ↓
 AuthWrapper (Stream-based auth state management)
     ↓
-├─ LoginScreen (if user is not authenticated)
-├─ SignupScreen (for new users)
+├─ AuthScreen (unified login/signup with toggle)
 └─ HomeScreen (if user is authenticated)
     ↓
 AuthService (Firebase Auth API calls)
     ↓
 Firebase Authentication Backend
 ```
+
+**Architecture Benefits:**
+- 🎯 **Single Source of Truth:** AuthService is the only way auth happens
+- 🔄 **Reactive Navigation:** StreamBuilder automatically shows correct screen
+- 📦 **Separated Concerns:** Firebase logic isolated in AuthService
+- 🧪 **Testable:** Each service can be unit tested independently
 
 ### AuthService: Core Authentication Logic
 
@@ -313,6 +318,121 @@ The signup screen allows new users to:
 - Handle validation errors (weak password, invalid email)
 - Show Firebase error messages
 - Navigate back to login
+
+### AuthScreen: Unified Login & Signup Interface (RECOMMENDED)
+
+**Location:** `lib/screens/auth_screen.dart`
+
+The `AuthScreen` is a modern, unified authentication interface that combines **Login and Sign Up** functionality in a single screen with a seamless toggle. This is the recommended approach for production apps.
+
+**Key Features:**
+- 🔄 **Toggle Mode:** Switch between Login and Sign Up with a single tap
+- ✅ **Smart Validation:** Real-time password matching and minimum length checking
+- 🛡️ **Error Handling:** User-friendly error messages for all scenarios
+- ⏳ **Loading State:** Loading indicator during authentication
+- 🎨 **Beautiful UI:** Material Design with eco-friendly green theme
+- 👁️ **Password Visibility Toggle:** Show/hide passwords
+- 🔒 **Secure:** Passwords never displayed in error messages
+
+**Screen Modes:**
+
+```
+Login Mode              →  Sign Up Mode (one tap to toggle)
+┌──────────────────┐      ┌──────────────────┐
+│ PlantConnect     │      │ PlantConnect     │
+│ Login            │      │ Create Account   │
+├──────────────────┤      ├──────────────────┤
+│ Email:  [_____] │      │ Email:  [_____] │
+│ Password: [**] 👁 │      │ Password: [**] 👁 │
+│ [Forgot?]        │      │ Confirm: [**] 👁 │
+│                  │      │ (6+ chars)       │
+│ [Login Button]   │      │ [Create Button]  │
+│ Sign Up? →       │      │ ← Login?         │
+└──────────────────┘      └──────────────────┘
+```
+
+**Implementation Highlights:**
+
+```dart
+class _AuthScreenState extends State<AuthScreen> {
+  bool _isSignUpMode = false; // Toggle state
+  String? _errorMessage;
+
+  void _toggleAuthMode() {
+    setState(() {
+      _isSignUpMode = !_isSignUpMode;
+      _errorMessage = null; // Clear errors when toggling
+      _emailController.clear(); // Clear fields
+      _passwordController.clear();
+      _confirmPasswordController.clear();
+    });
+  }
+
+  void _handleSignUp() async {
+    // Validate passwords match
+    if (_passwordController.text != _confirmPasswordController.text) {
+      setState(() => _errorMessage = 'Passwords do not match');
+      return;
+    }
+    
+    // Call AuthService
+    final user = await _authService.signUp(email, password);
+    // StreamBuilder automatically navigates to HomeScreen
+  }
+}
+```
+
+**Advantages Over Separate Screens:**
+
+| Feature | Two Screens | Single AuthScreen |
+|---------|------------|-------------------|
+| **Navigation Stack** | Remember previous route | No stack pollution |
+| **Code Duplication** | Email/password fields in both | Single implementation |
+| **User Experience** | Jarring transitions | Smooth, contextual |
+| **State Management** | Two separate controllers | One controller set |
+| **Maintenance** | Update 2 screens for fixes | Update 1 screen |
+| **Total Lines** | 400+ lines | 500+ lines (combined) |
+
+**Error Message Handling:**
+
+```dart
+String _getErrorMessage(String code, String? message) {
+  switch (code) {
+    case 'email-already-in-use':
+      return 'This email is already registered';
+    case 'weak-password':
+      return 'Password must be 6+ characters with uppercase/numbers/symbols';
+    case 'wrong-password':
+      return 'Wrong password. Please try again';
+    case 'user-not-found':
+      return 'No account found with this email';
+    case 'invalid-email':
+      return 'Please enter a valid email address';
+    default:
+      return message ?? 'An error occurred. Please try again';
+  }
+}
+```
+
+**How It Integrates with Main.dart:**
+
+```dart
+// In main.dart
+class AuthWrapper extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          return HomeScreen(); // User logged in
+        }
+        return AuthScreen(); // Shows login/signup toggle
+      },
+    );
+  }
+}
+```
 
 ### AuthWrapper: Authentication State Management
 

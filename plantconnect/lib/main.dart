@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'screens/login_screen.dart';
+import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/stateless_stateful_demo.dart';
 import 'screens/navigation_demo_home_screen.dart';
@@ -72,7 +72,7 @@ class AuthWrapper extends StatelessWidget {
           return const HomeScreen();
         }
 
-        return const LoginScreen();
+        return const AuthScreen();
       },
     );
   }
