@@ -1012,6 +1012,971 @@ Before deploying PlantConnect:
 
 ---
 
+## 🔐 Firebase Session Persistence & Auto-Login
+
+### **What is Session Persistence?**
+
+Session persistence allows users to **stay logged in even after closing and reopening the app**. Firebase Authentication automatically handles this without requiring manual storage using SharedPreferences or similar local storage mechanisms.
+
+**Key Benefits:**
+
+- ✅ **Better UX** - Users don't re-login every time they open the app
+- ✅ **Secure Tokens** - Encrypted storage on the device (Keychain on iOS, Keystore on Android)
+- ✅ **Automatic Refresh** - Tokens refresh in the background before expiring
+- ✅ **Transparent Handling** - No manual token management needed
+- ✅ **Enterprise-Grade** - Uses industry-standard security practices
+
+### **How Firebase Session Persistence Works**
+
+When a user logs in, Firebase:
+
+1. **Verifies credentials** with the server
+2. **Generates secure tokens**:
+   - Access token (short-lived, expires in ~1 hour)
+   - Refresh token (long-lived, used to get new access tokens)
+3. **Encrypts and stores tokens** in device-specific secure storage:
+   - **Android**: Uses Android Keystore (Hardware-backed if available)
+   - **iOS**: Uses iOS Keychain (Secure Enclave if on modern devices)
+4. **Persists user session** across app restarts
+5. **Auto-refreshes tokens** when needed
+
+**Session Timeline:**
+
+```
+User Logs In (Day 1, 9:00 AM)
+    ↓
+Access Token created (1-hour expiry)
+Refresh Token created (90-day expiry)
+Both stored in encrypted device storage
+    ↓
+User closes app, reopens app (Day 1, 2:00 PM)
+    ↓
+App loads cached tokens from storage
+Firebase validates tokens silently
+User is still logged in (no re-login needed) ✅
+    ↓
+User closes app, keeps it closed for 2 days
+    ↓
+App reopens (Day 3, 9:00 AM)
+    ↓
+Refresh token still valid (< 90 days)
+App exchanges refresh token for new access token
+User is still logged in (no interaction needed) ✅
+    ↓
+90 days pass, refresh token expires
+    ↓
+User reopens app (Day 91)
+    ↓
+No valid refresh tokens
+Session cleared, user redirected to login
+User must re-authenticate ✅
+```
+
+### **Using authStateChanges() for Session Management**
+
+The `authStateChanges()` stream is the recommended way to listen to session changes:
+
+```dart
+final authService = AuthService();
+
+// Listen to authentication state changes
+authService.authStateChanges.listen((User? user) {
+  if (user != null) {
+    print('User is logged in: ${user.email}');
+    // Navigate to HomeScreen
+  } else {
+    print('User is logged out');
+    // Navigate to AuthScreen
+  }
+});
+```
+
+**Stream Events:**
+
+| Event | Trigger | Action |
+|-------|---------|--------|
+| `User? (not null)` | User logs in | Show authenticated UI |
+| `User? (not null)` | App restarts with valid token | Auto-show authenticated UI |
+| `null` | User logs out | Show login screen |
+| `null` | Session invalid (token expired) | Force re-login |
+| `connectionState` | Checking session on startup | Show splash screen |
+
+### **Auto-Login Implementation in main.dart**
+
+The `AuthWrapper` in `main.dart` handles automatic navigation based on session state:
+
+```dart
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // While Firebase checks for existing session
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SplashScreen();
+        }
+
+        // User has valid session → Show HomeScreen
+        if (snapshot.hasData && snapshot.data != null) {
+          return const HomeScreen();
+        }
+
+        // No valid session → Show AuthScreen
+        return const AuthScreen();
+      },
+    );
+  }
+}
+```
+
+**How Auto-Login Works:**
+
+```
+App Start
+    ↓
+main() initializes Firebase
+    ↓
+StreamBuilder starts listening to authStateChanges()
+    ↓
+Firebase checks if valid tokens exist on device
+    ↓
+ConnectionState = waiting
+    → SplashScreen shown (~1-2 seconds)
+    ↓
+[Firebase responds]
+    ↓
+IF valid tokens found:
+    → snapshot.hasData = true
+    → HomeScreen displayed ✅
+    
+IF no valid tokens:
+    → snapshot.data = null
+    → AuthScreen displayed ✅
+```
+
+### **Adding a Splash Screen**
+
+For professional UX, show a splash screen while Firebase checks session:
+
+**File:** `lib/screens/splash_screen.dart`
+
+```dart
+import 'package:flutter/material.dart';
+
+class SplashScreen extends StatelessWidget {
+  const SplashScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // App logo
+            Image.asset(
+              'assets/images/plantconnect_logo.png',
+              width: 120,
+              height: 120,
+            ),
+            const SizedBox(height: 24),
+            
+            // App name
+            const Text(
+              'PlantConnect',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(height: 40),
+            
+            // Loading indicator
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+            ),
+            const SizedBox(height: 16),
+            
+            // Loading text
+            const Text(
+              'Loading your plants...',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+### **Testing Session Persistence**
+
+#### **Test 1: Auto-Login on App Restart**
+
+```
+1. Open PlantConnect and login with email/password
+2. Wait for HomeScreen to load
+3. Completely close the app:
+   - Android: Swipe up from bottom or use task manager
+   - iOS: Double-tap Home button and swipe up
+4. Wait 2-3 seconds
+5. Reopen the app
+6. ✅ Verify: HomeScreen loads WITHOUT showing login screen
+7. ✅ Verify: User email is still accessible
+```
+
+**Expected Behavior:**
+- Splash screen appears (1-2 seconds)
+- HomeScreen loads directly
+- No login form visible
+
+#### **Test 2: Logout Clears Session**
+
+```
+1. On HomeScreen, tap logout button
+2. Confirmation dialog appears
+3. Tap "Logout" button
+4. ✅ Verify: Redirected to AuthScreen
+5. Completely close and reopen app
+6. ✅ Verify: AuthScreen appears (not HomeScreen)
+7. ✅ Verify: Must login again
+```
+
+**Expected Behavior:**
+- Logout removes stored tokens
+- App doesn't bypass login after restart
+- Fresh session starts with new login
+
+#### **Test 3: Invalid/Expired Session**
+
+```
+1. Login to the app
+2. Go to Firebase Console → Authentication → Users
+3. Click the user's email
+4. Click "Delete user" button
+5. Confirm deletion
+6. Close and reopen app
+7. ✅ Verify: Session is invalidated
+8. ✅ Verify: User is redirected to AuthScreen
+9. ✅ Verify: Cannot access HomeScreen
+```
+
+**Expected Behavior:**
+- Even with cached tokens, invalid users can't access app
+- Firebase notices deleted account
+- User redirected to login
+
+#### **Test 4: Network Connectivity**
+
+```
+Test with WiFi/Mobile OFF:
+
+1. Login to app (requires network)
+2. Go offline with app open
+3. Logout and reopen app (while offline)
+4. ✅ Verify: Splash screen shows longer (checking tokens)
+5. Verify behavior:
+   - If cached tokens valid: HomeScreen may load (but features needing network fail gracefully)
+   - If tokens expired: AuthScreen shown
+```
+
+### **Token Refresh Behavior**
+
+Firebase handles token refresh **automatically in the background**:
+
+```dart
+// Firebase manages this internally - no code needed:
+
+// Old token expires → Firebase refreshes automatically
+// New access token obtained → Current requests continue
+// Users don't see any interruption
+
+// Only exception: If device is offline when token expires
+// Next network call will attempt refresh
+// If refresh fails, user is logged out
+```
+
+**What Triggers Token Refresh:**
+
+- ✅ Network request made with expiring token
+- ✅ Token auto-refresh scheduled before expiry
+- ✅ User in the background for extended period
+- ✅ On app resume from background
+
+**What Invalidates Sessions:**
+
+- ❌ User changes password
+- ❌ User deletes account
+- ❌ User signs out explicitly
+- ❌ Admin disables user in Firebase Console
+- ❌ Refresh token expires (90 days)
+- ❌ App data is cleared manually
+
+### **Handling Session Invalidation Gracefully**
+
+If a session becomes invalid while app is running:
+
+```dart
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    
+    // Listen for session invalidation
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user == null) {
+        // Session was invalidated, return to login
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/auth',
+          (route) => false,
+        );
+        
+        // Show notification
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Session expired. Please login again.')),
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('My Plants')),
+      body: const Center(child: Text('Plant list')),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => FirebaseAuth.instance.signOut(),
+        child: const Icon(Icons.logout),
+      ),
+    );
+  }
+}
+```
+
+### **Logout Implementation**
+
+Clean logout that properly clears session:
+
+```dart
+// In HomeScreen or settings:
+
+Future<void> _handleLogout() async {
+  try {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      // Sign out from Firebase
+      await FirebaseAuth.instance.signOut();
+      // StreamBuilder automatically redirects to AuthScreen
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Logout error: $e')),
+    );
+  }
+}
+```
+
+**What Happens After Logout:**
+
+1. ✅ Cached tokens are deleted
+2. ✅ Session is cleared
+3. ✅ authStateChanges() emits null
+4. ✅ StreamBuilder detects change
+5. ✅ App navigates to AuthScreen
+6. ✅ User must re-login to access app
+
+### **Verifying Session in Firebase Console**
+
+#### **View User Sessions**
+
+1. Go to [Firebase Console](https://console.firebase.google.com)
+2. Select project `plantconnect-7dd0c`
+3. Click **Authentication** → **Users**
+
+**Session Information Displayed:**
+
+| Field | Meaning |
+|-------|---------|
+| **Email** | User's login email |
+| **User UID** | Unique identifier for user database queries |
+| **Created** | Account creation date |
+| **Last sign-in** | Last time user logged in or session was checked |
+| **Sign-in method** | Email/Password, Google, etc. |
+
+#### **Session Persistence Facts:**
+
+```
+✅ User UID stays the same across sessions
+✅ Last sign-in updates when app checks session
+✅ User data in Firestore persists
+✅ No action needed on your end
+✅ Firebase handles everything internally
+```
+
+### **🎯 Key Insights on Session Persistence**
+
+**1. Firebase Handles Everything**
+- No need for SharedPreferences or local database for session
+- Tokens stored securely by Firebase
+- Refresh happens automatically
+
+**2. AuthStateChanges is Your Friend**
+- Single source of truth for auth state
+- Automatically navigates user based on session
+- Handles all edge cases (expiry, invalidation, app restart)
+
+**3. Splash Screen Improves UX**
+- Professional appearance while checking session
+- Users understand the app is loading
+- Sets expectations for short delay
+
+**4. Test on Real Devices**
+- Emulators may behave differently
+- Real devices use actual Keystore/Keychain
+- Always test app restart flow
+
+**5. Session Persists Until Invalidated**
+- Tokens refresh automatically (90-day limit)
+- Invalidation only by logout, password change, or account deletion
+- Default behavior is "stay logged in"
+
+### **Common Session Persistence Issues**
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| User keeps logging out | Token expiry not handled | Ensure authStateChanges() is listened to |
+| Auto-login doesn't work | StreamBuilder missing in main.dart | Wrap home in StreamBuilder<User?> |
+| Session not clearing on logout | signOut() not awaited | Use `await FirebaseAuth.instance.signOut()` |
+| Splash screen too quick | No delay | Add 1-2 second delay with Future.delayed() |
+| User sees login form briefly | Race condition | Use connectionState.waiting for splash |
+| Session persists after delete | App data not cleared | Clear app storage or reinstall |
+
+---
+
+## 🗄️ Firestore Database Schema Design
+
+### **What is Cloud Firestore?**
+
+Cloud Firestore is a NoSQL document-oriented database that provides:
+
+- **Collections** - Top-level containers that hold documents
+- **Documents** - Key-value records with fields and data
+- **Subcollections** - Collections nested inside documents for hierarchical data
+- **Real-Time Sync** - Automatic updates across all connected clients
+- **Offline Support** - Data works even without internet connection
+
+### **PlantConnect Data Requirements**
+
+Before designing the schema, we identified what data PlantConnect needs to store:
+
+| Data Type | Purpose | Scale | Growth |
+|-----------|---------|-------|--------|
+| **User Profiles** | Store user info, email, preferences | ~1 per user | Linear with users |
+| **Plant Library** | Available plants with care instructions | ~100-500 plants | Curated manually |
+| **User Plants** | Plants the user owns/tracks | ~5-20 per user | User-dependent |
+| **Care Schedules** | Watering, fertilizing, etc. | ~30-100 per plant | Per plant care needs |
+| **Care History** | Logs of when care was performed | ~1000s per user | One entry per action |
+| **Notes** | User notes about their plants | ~50 per plant | User-dependent |
+| **Plant Photos** | References to images in storage | ~5-10 per plant | User uploads |
+
+### **Firestore Schema Structure**
+
+PlantConnect uses the following Firestore architecture:
+
+```
+firestore-root/
+├── users/                           # User profiles
+│   └── {userId}/
+│       ├── email: string
+│       ├── displayName: string
+│       ├── photoURL: string (optional)
+│       ├── createdAt: timestamp
+│       ├── updatedAt: timestamp
+│       └── myPlants (subcollection)
+│           └── {plantId}
+│               ├── commonName: string
+│               ├── scientificName: string
+│               ├── description: string
+│               ├── photoURL: string (optional)
+│               ├── location: string
+│               ├── acquiredDate: timestamp
+│               ├── careNotes: string
+│               └── careSchedules (subcollection)
+│                   └── {scheduleId}
+│                       ├── careType: string (water, fertilize, prune)
+│                       ├── frequency: string (daily, weekly, monthly)
+│                       ├── lastPerformed: timestamp
+│                       ├── nextDue: timestamp
+│                       └── careHistory (subcollection)
+│                           └── {entryId}
+│                               ├── performedAt: timestamp
+│                               ├── notes: string
+│                               └── photoURL: string (optional)
+│
+├── plantLibrary/                    # Public plant information
+│   └── {plantId}
+│       ├── commonName: string
+│       ├── scientificName: string
+│       ├── description: string
+│       ├── careInstructions: map
+│       │   ├── watering: string
+│       │   ├── lighting: string
+│       │   ├── temperature: string
+│       │   └── humidity: string
+│       ├── difficulty: string (easy, medium, hard)
+│       ├── category: string (indoor, outdoor, succulent, etc.)
+│       ├── photoURL: string
+│       └── tags: array
+
+└── notes/                           # Alternative flat structure for notes
+    └── {noteId}
+        ├── userId: string
+        ├── plantId: string
+        ├── title: string
+        ├── content: string
+        ├── createdAt: timestamp
+        ├── updatedAt: timestamp
+        └── tags: array
+```
+
+### **Collection Definitions**
+
+#### **1. `users` Collection**
+
+Stores user profile information. Auto-created when user signs up.
+
+**Document Structure:**
+
+```json
+{
+  "userId": "user_12345",
+  "email": "john@example.com",
+  "displayName": "John Doe",
+  "photoURL": "gs://bucket/photos/user_12345.jpg",
+  "createdAt": "2024-02-26T10:30:00Z",
+  "updatedAt": "2024-02-27T15:45:00Z"
+}
+```
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `email` | string | ✅ | User's email (unique) |
+| `displayName` | string | ❌ | User's full name |
+| `photoURL` | string | ❌ | Profile picture URL from Firebase Storage |
+| `createdAt` | timestamp | ✅ | Account creation date |
+| `updatedAt` | timestamp | ✅ | Last profile update |
+
+**Why this structure?**
+- User ID is the document ID (same as Firebase Auth UID)
+- Email is stored for quick lookups
+- displayName allows personalization without auth data
+- Timestamps track profile history
+
+#### **2. `users/{userId}/myPlants` Subcollection**
+
+Stores all plants a user owns and tracks. Nested under user for data isolation.
+
+**Document Structure:**
+
+```json
+{
+  "plantId": "plant_abc123",
+  "commonName": "Monstera Deliciosa",
+  "scientificName": "Rhaphidophora tetrasperma",
+  "description": "A beautiful trailing plant with heart-shaped leaves",
+  "photoURL": "gs://bucket/plants/monstera_deliciosa.jpg",
+  "location": "Living Room - North Window",
+  "acquiredDate": "2024-01-15T00:00:00Z",
+  "careNotes": "Prefers bright indirect light, water weekly"
+}
+```
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `commonName` | string | ✅ | Plant's common name |
+| `scientificName` | string | ✅ | Botanical/scientific name |
+| `description` | string | ✅ | Basic plant description |
+| `photoURL` | string | ❌ | User's photo of their plant |
+| `location` | string | ❌ | Where plant is located in home |
+| `acquiredDate` | timestamp | ✅ | When user got the plant |
+| `careNotes` | string | ❌ | User's custom care notes |
+
+**Why a subcollection?**
+- Each user can have 5-20 plants
+- Should only load user's plants (privacy)
+- Scales better than array of plants in user document
+- Real-time updates for plant changes
+
+#### **3. `users/{userId}/myPlants/{plantId}/careSchedules` Subcollection**
+
+Tracks care schedules (watering, fertilizing, pruning, etc.) for each plant.
+
+**Document Structure:**
+
+```json
+{
+  "scheduleId": "schedule_water_123",
+  "careType": "watering",
+  "frequency": "weekly",
+  "lastPerformed": "2024-02-26T08:00:00Z",
+  "nextDue": "2024-03-05T08:00:00Z",
+  "notes": "Use filtered water at room temperature"
+}
+```
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `careType` | string | ✅ | Type of care (water, fertilize, prune, repot, etc.) |
+| `frequency` | string | ✅ | How often (daily, weekly, biweekly, monthly, quarterly, yearly) |
+| `lastPerformed` | timestamp | ❌ | When care was last done |
+| `nextDue` | timestamp | ⚠️ | Calculated: when care is due again |
+| `notes` | string | ❌ | Special instructions for this care type |
+
+**Why a subcollection?**
+- Each plant can have 5-10 different care schedules
+- Care history can grow to 100s of entries
+- Better to separate from plant document
+- Allows real-time reminders system
+
+#### **4. `users/{userId}/myPlants/{plantId}/careSchedules/{scheduleId}/careHistory` Subcollection**
+
+Logs of actual care performed (timeline of when user watered, fertilized, etc.).
+
+**Document Structure:**
+
+```json
+{
+  "entryId": "history_20240226_001",
+  "performedAt": "2024-02-26T08:30:00Z",
+  "notes": "Plant was drooping, gave it a good drink",
+  "photoURL": "gs://bucket/care-logs/water_20240226.jpg"
+}
+```
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `performedAt` | timestamp | ✅ | When the care was performed |
+| `notes` | string | ❌ | User's observations/notes |
+| `photoURL` | string | ❌ | Photo of plant after care |
+
+**Why a subcollection?**
+- Could have 100s+ of entries over months/years
+- Charged per read (array vs subcollection)
+- Allows sorting by date efficiently
+- Future: graphs of care history
+
+#### **5. `plantLibrary` Collection**
+
+Public reference data about plants with care instructions. Manually curated by admins.
+
+**Document Structure:**
+
+```json
+{
+  "plantId": "lib_monstera_001",
+  "commonName": "Monstera Deliciosa",
+  "scientificName": "Rhaphidophora tetrasperma",
+  "description": "Popular houseplant known for its split leaves",
+  "careInstructions": {
+    "watering": "Water when top inch of soil is dry. Usually weekly in growing season",
+    "lighting": "Bright, indirect light. Can tolerate medium light",
+    "temperature": "65-80°F (18-27°C). Avoid cold drafts",
+    "humidity": "Moderate to high. Mist leaves occasionally"
+  },
+  "difficulty": "easy",
+  "category": "indoor",
+  "photoURL": "gs://bucket/library/monstera.jpg",
+  "tags": ["indoor", "vining", "easy-care", "pet-safe-ish"]
+}
+```
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `commonName` | string | ✅ | Common plant name |
+| `scientificName` | string | ✅ | Scientific/botanical name |
+| `description` | string | ✅ | Overview of the plant |
+| `careInstructions` | map | ✅ | Object with watering, lighting, temp, humidity instructions |
+| `difficulty` | string | ✅ | Skill level needed (easy, medium, hard) |
+| `category` | string | ✅ | Plant type (indoor, outdoor, succulent, vining, etc.) |
+| `photoURL` | string | ✅ | High-quality photo of plant |
+| `tags` | array | ✅ | Array of searchable tags |
+
+**Why this structure?**
+- Shared data (all users reference same plants)
+- Can be queried without user privacy concerns
+- Separate from user data for scalability
+- Admin can update care instructions for all users
+
+#### **6. `notes` Collection (Optional Flat Structure)**
+
+Alternative to storing notes in subcollections. Useful if users have many notes across different plants.
+
+**Document Structure:**
+
+```json
+{
+  "noteId": "note_20240226_001",
+  "userId": "user_12345",
+  "plantId": "plant_abc123",
+  "title": "Monstera Growth Update",
+  "content": "New leaf unfurling! Plant seems very happy in new location",
+  "createdAt": "2024-02-26T10:00:00Z",
+  "updatedAt": "2024-02-26T10:00:00Z",
+  "tags": ["growth", "observation", "monstera"]
+}
+```
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `userId` | string | ✅ | Owner of the note |
+| `plantId` | string | ✅ | Plant being noted |
+| `title` | string | ✅ | Note title/topic |
+| `content` | string | ✅ | Full note content |
+| `createdAt` | timestamp | ✅ | When note was created |
+| `updatedAt` | timestamp | ✅ | When note was last edited |
+| `tags` | array | ❌ | Keywords for searching |
+
+**Why optional?**
+- Allows notes to be searched/filtered globally
+- Can query notes by date across all users
+- Alternative to storing in plant subcollections
+
+### **Field Design Guidelines**
+
+#### **Naming Conventions**
+
+All field names follow camelCase (not snake_case):
+
+```dart
+// ✅ Correct
+String email;
+String displayName;
+DateTime createdAt;
+
+// ❌ Wrong
+String Email;
+String display_name;
+DateTime created_at;
+```
+
+#### **Data Types**
+
+Use Firestore's native types for efficiency:
+
+| Type | Use Case | Example |
+|------|----------|---------|
+| `string` | Text data | `"John Doe"`, `"Monstera Deliciosa"` |
+| `number` | Integers and decimals | `42`, `3.14`, `100` |
+| `boolean` | True/false values | `true`, `false` |
+| `timestamp` | Dates and times | `2024-02-26T10:30:00Z` |
+| `array` | Lists | `["easy-care", "indoor", "vining"]` |
+| `map` | Objects | `{watering: "...", lighting: "..."}` |
+| `reference` | Links to other documents | Reference to another doc |
+| `geopoint` | Latitude/longitude | `{latitude: 40.7, longitude: -73.9}` |
+
+#### **Timestamps for Sorting**
+
+Always use server timestamps for consistency:
+
+```dart
+// When creating a document
+'createdAt': FieldValue.serverTimestamp(),
+'updatedAt': FieldValue.serverTimestamp(),
+
+// When updating
+'updatedAt': FieldValue.serverTimestamp(),
+```
+
+**Benefits:**
+- Server time (not client time)
+- Timezone-independent sorting
+- Consistent across users
+- Prevents timezone bugs
+
+#### **Field Validation Rules**
+
+| Field | Validation | Reason |
+|-------|-----------|--------|
+| `email` | Must be valid email format | Firebase Auth requirement |
+| `createdAt`, `updatedAt` | Server timestamp only | Consistency |
+| `userId`, `plantId` | Non-empty string | References/queries |
+| `frequency` | Enum: daily, weekly, monthly, etc. | Consistency |
+| `careType` | Enum: water, fertilize, prune, etc. | Consistency |
+
+### **Subcollection vs Array Decision Matrix**
+
+| Situation | Use Subcollection | Use Array |
+|-----------|-------------------|-----------|
+| **Few items** (< 10) | ❌ | ✅ - Array is fine |
+| **Many items** (100s) | ✅ | ❌ - Too expensive to read |
+| **Real-time updates needed** | ✅ | ❌ - Arrays not real-time |
+| **Items grow over time** | ✅ | ❌ - Costs increase |
+| **Deep nesting** | ✅ | ❌ - Subcollections better |
+| **Simple reference needed** | ❌ | ✅ - Array is simpler |
+
+**PlantConnect uses subcollections for:**
+- `myPlants` (5-20 per user) - Small but organized by user
+- `careSchedules` (5-10 per plant) - Organized by plant
+- `careHistory` (100s per plant) - Grows over time, heavy reading
+
+**PlantConnect uses arrays for:**
+- `tags` (3-5 per plant) - Small, rarely updated
+
+### **Performance & Scalability Considerations**
+
+**Estimated Usage at Scale:**
+
+| Metric | Calculation | Result |
+|--------|-----------|--------|
+| **Monthly reads (plant browse)** | 10,000 users × 10 reads | 100,000 reads |
+| **Monthly reads (care checks)** | 10,000 users × 20 checks | 200,000 reads |
+| **Monthly writes (care logs)** | 10,000 users × 30 actions | 300,000 writes |
+| **Storage (user data)** | 10,000 users × 5KB | 50MB |
+| **Storage (care history)** | 300,000 entries × 1KB | 300MB |
+
+**Cost Estimate (Firestore pricing):**
+- Reads: 300,000/day × $0.06/100K = ~$181/month
+- Writes: 100,000/day × $0.18/100K = ~$181/month
+- Total: ~$362/month at 10K DAU
+
+**Optimizations Already Built In:**
+- ✅ Subcollections reduce reads (don't fetch history unless needed)
+- ✅ Separate plantLibrary (shared = fewer duplicates)
+- ✅ Server timestamps (no client-side time sorting needed)
+- ✅ Query optimization (indexes for complex queries)
+
+### **Reflection: Firestore Schema Design**
+
+#### **Why Subcollections Over Arrays?**
+
+We chose subcollections for myPlants, careSchedules, and careHistory because:
+
+1. **Cost Efficiency**
+   - Array of 100 care history entries = Read entire plant document every time
+   - Subcollection = Read only what you need
+   - At scale: Saves thousands of read operations monthly
+
+2. **Real-Time Sync**
+   - Arrays don't update in real-time
+   - Subcollections emit real-time events
+   - User sees care schedule updates instantly
+
+3. **Query Flexibility**
+   - Can filter care history by date without loading plant
+   - Can sort care schedules by nextDue date efficiently
+   - Can paginate care history (show 10 at a time)
+
+4. **Scalability**
+   - A user with 100 plants × 50 care events each = 5,000 documents
+   - With arrays, single document would be 5,000 entries
+   - Subcollections keep documents manageable
+
+#### **Why Plant Library Separate?**
+
+plantLibrary is not a subcollection under users because:
+
+1. **Shared Data**
+   - Thousands of users reference same plants
+   - Storing copy in each user = massive duplication
+   - Single source of truth = consistency
+
+2. **Admin Management**
+   - Admins can update care instructions
+   - Update propagates to all users immediately
+   - No API calls needed
+
+3. **Discovery**
+   - Users can browse plants before owning them
+   - Filtering (easy plants, indoor plants) is efficient
+   - Search indices work at collection level
+
+#### **Why Notes Are Optional?**
+
+Notes collection is included but optional because:
+
+1. **Flexible Structure**
+   - Nested: notes tied to specific plants
+   - Flat: notes searchable across all plants
+   - Choose based on app features
+
+2. **Future Search Features**
+   - Flat structure enables "search all notes"
+   - Timeline view of all notes
+   - Export all notes as blog
+
+3. **Privacy**
+   - Notes could become public/shareable
+   - Flat structure separates permissions better
+
+#### **Challenges Faced During Schema Design**
+
+1. **Challenge: Balancing Data Duplication vs Queries**
+   - Problem: Should plant name be stored in careSchedule or referenced?
+   - Decision: Reference plantId, query plant when needed
+   - Learning: Duplication is risky; references are cleaner
+
+2. **Challenge: How Deep Should Nesting Go?**
+   - Problem: 4+ level nesting (user→plant→schedule→history→?) gets complex
+   - Decision: Stop at 3 levels (history is leaf, no sub-subcollections)
+   - Learning: Deep nesting = hard to query and manage
+
+3. **Challenge: Array vs Subcollection**
+   - Problem: Should tags be array or subcollection?
+   - Decision: Array (small, static), history stays subcollection (grows large)
+   - Learning: Depends on size and update frequency
+
+4. **Challenge: Document Size Limits**
+   - Problem: Firestore documents have 1MB limit
+   - Decision: Use subcollections to keep documents small
+   - Learning: At scale, document size matters
+
+---
+
 ## �📚 Responsive Design Implementation
 
 PlantConnect implements a **fully responsive layout** that adapts seamlessly across all device sizes and orientations.
