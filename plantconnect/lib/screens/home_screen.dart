@@ -224,6 +224,13 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.notifications),
+            tooltip: 'Notifications demo',
+            onPressed: () {
+              Navigator.of(context).pushNamed('/notifications_demo');
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Logout',
             onPressed: () async {

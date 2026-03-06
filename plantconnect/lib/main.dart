@@ -15,13 +15,19 @@ import 'screens/asset_demo_screen.dart';
 import 'screens/animations_demo.dart';
 import 'screens/rotate_logo_demo.dart';
 import 'screens/firestore_demo_screen.dart';
+import 'screens/notifications_demo_screen.dart';
 import 'services/auth_service.dart';
+import 'services/notification_service.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   print('Firebase has been successfully initialized!');
+  
+  // Initialize notifications
+  await NotificationService().initialize();
+  
   runApp(const MyApp());
 }
 
@@ -49,6 +55,7 @@ class MyApp extends StatelessWidget {
         '/animations_demo': (_) => const AnimationsDemoScreen(),
         '/rotate_demo': (_) => const RotateLogoDemo(),
         '/firestore_demo': (_) => const FirestoreDemoScreen(),
+        '/notifications_demo': (_) => const NotificationsDemoScreen(),
       },
       debugShowCheckedModeBanner: false,
     );

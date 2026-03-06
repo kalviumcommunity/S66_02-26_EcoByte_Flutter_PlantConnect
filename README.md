@@ -9208,7 +9208,7 @@ And a reflection covering:
 
 ### What are Cloud Functions?
 
-Cloud Functions provide:
+Cloud Functions provide are:
 - ✅ **Automatic Scaling** - From 1 to 10,000 concurrent executions
 - ✅ **Cost Efficiency** - Pay only for execution time
 - ✅ **No Server Management** - Focus on code, not infrastructure
