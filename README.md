@@ -995,6 +995,585 @@ Test 4: Weak Password
 - Easy to add more auth methods (Google, Apple)
 - Clean code is maintainable code
 
+---
+
+# ☁️ Cloud Firestore Queries Implementation
+
+This section documents how **Cloud Firestore queriess** work in PlantConnect, enabling efficient data filtering, sorting, and pagination.
+
+## **What is a Firestore Query?**
+
+A Firestore query retrieves documents from a collection based on specific conditions. Queries allow you to:
+
+- ✅ **Filter** documents with `.where()` conditions
+- ✅ **Sort** results with `.orderBy()`
+- ✅ **Limit** results with `.limit()` for pagination
+- ✅ **Combine** filters for complex conditions
+- ✅ **Stream real-time** changes with `.snapshots()`
+
+### **Basic Query Structure**
+
+```dart
+FirebaseFirestore.instance
+  .collection('items')                      // Specify collection
+  .where('status', isEqualTo: 'available')  // Add filter
+  .orderBy('price')                         // Add sorting
+  .limit(10)                                // Limit results
+  .snapshots()                              // Get real-time updates
+```
+
+---
+
+## **Query Types Implemented**
+
+### **1. Equality Filter (.where with isEqualTo)**
+
+Finds documents where a field equals a specific value.
+
+```dart
+// Find all plants that are available for purchase
+FirebaseFirestore.instance
+  .collection('items')
+  .where('status', isEqualTo: 'available')
+  .snapshots()
+```
+
+**Real-world use case:** Show only in-stock plants on the shop screen.
+
+---
+
+### **2. Comparison Filters**
+
+Use comparison operators to find documents within a range.
+
+#### **Greater Than (isGreaterThan)**
+```dart
+// Find all plants more expensive than $50
+FirebaseFirestore.instance
+  .collection('items')
+  .where('price', isGreaterThan: 50)
+  .snapshots()
+```
+
+#### **Less Than Or Equal (isLessThanOrEqualTo)**
+```dart
+// Find all affordable plants ($100 or less)
+FirebaseFirestore.instance
+  .collection('items')
+  .where('price', isLessThanOrEqualTo: 100)
+  .snapshots()
+```
+
+#### **Price Range (Combined Filters)**
+```dart
+// Find plants between $30 and $150
+FirebaseFirestore.instance
+  .collection('items')
+  .where('price', isGreaterThanOrEqualTo: 30)
+  .where('price', isLessThanOrEqualTo: 150)
+  .snapshots()
+```
+
+---
+
+### **3. Array Contains Filter**
+
+Finds documents where an array field contains a specific value.
+
+```dart
+// Find all air-purifying plants
+FirebaseFirestore.instance
+  .collection('items')
+  .where('tags', arrayContains: 'airPurifying')
+  .snapshots()
+```
+
+**Data structure:**
+```dart
+{
+  'name': 'Monstera Deliciosa',
+  'tags': ['airPurifying', 'lowMaintenance', 'pet-friendly']
+}
+```
+
+---
+
+### **4. Sorting with orderBy**
+
+#### **Ascending Order (Default)**
+```dart
+// Sort plants by price (lowest to highest)
+FirebaseFirestore.instance
+  .collection('items')
+  .orderBy('price')
+  .snapshots()
+```
+
+#### **Descending Order**
+```dart
+// Sort plants by newest first (highest date to lowest)
+FirebaseFirestore.instance
+  .collection('items')
+  .orderBy('createdAt', descending: true)
+  .snapshots()
+```
+
+#### **Multiple Sort Fields**
+```dart
+// Sort by availability first, then by price
+FirebaseFirestore.instance
+  .collection('items')
+  .orderBy('inStock', descending: true)
+  .orderBy('price')
+  .snapshots()
+```
+
+---
+
+### **5. Limiting Results**
+
+Fetch only a subset of documents (important for performance and pagination).
+
+```dart
+// Get only the top 10 most expensive plants
+FirebaseFirestore.instance
+  .collection('items')
+  .orderBy('price', descending: true)
+  .limit(10)
+  .snapshots()
+```
+
+**Use cases:**
+- Initial page load (show first 20 items)
+- Featured plants carousel (top 5)
+- Reduce bandwidth usage
+
+---
+
+### **6. Complex Queries (Filter + Sort + Limit)**
+
+Combine multiple operations for precise control.
+
+```dart
+// Get the 10 cheapest in-stock plants available today
+FirebaseFirestore.instance
+  .collection('items')
+  .where('inStock', isEqualTo: true)
+  .where('status', isEqualTo: 'available')
+  .orderBy('price')
+  .limit(10)
+  .snapshots()
+```
+
+**Real-world scenarios:**
+- Show discounted in-stock items first
+- Find high-rated plants sorted by relevance
+- Paginate through large datasets efficiently
+
+---
+
+## **Query Methods in FirestoreService**
+
+The `FirestoreService` provides reusable methods for all query types:
+
+### **Equality Filter**
+```dart
+// Find items with specific status
+Stream<QuerySnapshot> getDocumentsWhere(
+  String collection,
+  String field,
+  dynamic value,
+)
+
+// Usage
+_firestoreService.getDocumentsWhere('items', 'status', 'available')
+```
+
+### **Comparison Operators**
+```dart
+// Compare numeric or date fields
+Stream<QuerySnapshot> getDocumentsCompare(
+  String collection,
+  String field, {
+  dynamic isGreaterThan,
+  dynamic isLessThan,
+  dynamic isGreaterThanOrEqualTo,
+  dynamic isLessThanOrEqualTo,
+})
+
+// Usage: Find expensive plants
+_firestoreService.getDocumentsCompare(
+  'items',
+  'price',
+  isGreaterThan: 100,
+)
+```
+
+### **Array Contains**
+```dart
+Stream<QuerySnapshot> getDocumentsArrayContains(
+  String collection,
+  String field,
+  dynamic value,
+)
+
+// Usage: Find plants with specific tag
+_firestoreService.getDocumentsArrayContains('items', 'tags', 'rare')
+```
+
+### **Multiple Filters**
+```dart
+Stream<QuerySnapshot> getDocumentsMultiFilter(
+  String collection, {
+  required Map<String, dynamic> filters,
+  String? orderByField,
+  bool descending = false,
+  int? limitCount,
+})
+
+// Usage: In-stock plants, sorted by price, top 10
+_firestoreService.getDocumentsMultiFilter(
+  'items',
+  filters: {'inStock': true, 'status': 'available'},
+  orderByField: 'price',
+  limitCount: 10,
+)
+```
+
+### **Sorted Results**
+```dart
+Stream<QuerySnapshot> getDocumentsSorted(
+  String collection,
+  String field, {
+  bool descending = false,
+  int? limitCount,
+})
+
+// Usage
+_firestoreService.getDocumentsSorted('items', 'createdAt', descending: true)
+```
+
+### **Limited Results**
+```dart
+Stream<QuerySnapshot> getDocumentsLimit(
+  String collection,
+  int limitCount,
+)
+
+// Usage: Get first 5 items
+_firestoreService.getDocumentsLimit('items', 5)
+```
+
+### **Pagination**
+```dart
+Future<List<DocumentSnapshot>> getDocumentsPaginated(
+  String collection, {
+  int pageSize = 10,
+  DocumentSnapshot? startAfter,
+  String? orderByField = 'createdAt',
+  bool descending = true,
+})
+
+// Usage: Load more items
+final firstPage = await _firestoreService.getDocumentsPaginated('items');
+final lastDoc = firstPage.last;
+final nextPage = await _firestoreService.getDocumentsPaginated(
+  'items',
+  startAfter: lastDoc,
+)
+```
+
+---
+
+## **Using Queries in UI with StreamBuilder**
+
+Display filtered and sorted data in real-time:
+
+```dart
+StreamBuilder<QuerySnapshot>(
+  stream: FirebaseFirestore.instance
+    .collection('items')
+    .where('inStock', isEqualTo: true)
+    .orderBy('price')
+    .limit(10)
+    .snapshots(),
+  builder: (context, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return CircularProgressIndicator();
+    }
+
+    if (snapshot.hasError) {
+      return Text('Error: ${snapshot.error}');
+    }
+
+    final items = snapshot.data!.docs;
+
+    return ListView.builder(
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        final data = item.data() as Map<String, dynamic>;
+
+        return ListTile(
+          title: Text(data['name']),
+          subtitle: Text('\$${data['price']}'),
+          trailing: Text(
+            data['inStock'] ? '✓ In Stock' : 'Out of Stock',
+            style: TextStyle(
+              color: data['inStock'] ? Colors.green : Colors.red,
+            ),
+          ),
+        );
+      },
+    );
+  },
+)
+```
+
+---
+
+## **Firestore Indexes for Performance**
+
+When using multiple `.where()` and `.orderBy()` together, Firestore may require composite indexes.
+
+### **Example: Index Required**
+
+This query needs an index:
+```dart
+.where('inStock', isEqualTo: true)
+.orderBy('price')
+```
+
+### **Creating an Index (Automatic)**
+
+Firestore prompts you to create the index automatically:
+1. Run the query in your app
+2. Click the link in the error message
+3. Firestore Console creates the index automatically
+4. Index builds in background (usually < 1 minute)
+
+### **Creating an Index (Manual)**
+
+1. Go to [Firebase Console](https://console.firebase.google.com)
+2. Select your project
+3. **Firestore Database** → **Indexes** tab
+4. Click **Create Index**
+5. Configure:
+   - Collection: `items`
+   - Fields: `inStock` (Ascending), `price` (Ascending)
+6. Click **Create**
+
+---
+
+## **Query Optimization Best Practices**
+
+### **1. ✅ DO: Always Filter First**
+```dart
+// Good: Filter reduces documents scanned
+.where('inStock', isEqualTo: true)
+.orderBy('price')
+.limit(10)
+```
+
+### **2. ❌ DON'T: Fetch All Documents Then Filter**
+```dart
+// Bad: Downloads entire collection
+.orderBy('price')
+// Then filter in Dart code (wasteful)
+```
+
+### **3. ✅ DO: Index Frequently-Queried Fields**
+```dart
+// Index these fields for fast queries
+'status', 'price', 'inStock', 'createdAt'
+```
+
+### **4. ✅ DO: Paginate Large Datasets**
+```dart
+// Load 20 at a time, then load more on scroll
+.limit(20)
+```
+
+### **5. ❌ DON'T: Create Composite Queries on Multiple Fields**
+```dart
+// Risky without index
+.where('status', isEqualTo: 'active')
+.where('price', isGreaterThan: 50)
+.where('tags', arrayContains: 'rare')
+```
+
+### **6. ✅ DO: Use Timestamps for Sorting**
+```dart
+// Better than string dates - sortable and efficient
+.orderBy('createdAt', descending: true)
+```
+
+### **7. ✅ DO: Limit Results for Mobile Users**
+```dart
+// Network-friendly
+.limit(10)  // Not 1000
+```
+
+---
+
+## **Firestore Demo Screen Tabs**
+
+The app includes interactive demos in `FirestoreDemoScreen`:
+
+| Tab | Demo | Query Type |
+|-----|------|-----------|
+| **Tab 1** | Write Data | CREATE, UPDATE, DELETE |
+| **Tab 2** | Stream Data | Real-time list (all items) |
+| **Tab 3** | Single Doc | FutureBuilder (one-time read) |
+| **Tab 4** | Query Examples | Basic filters (status, tags, boolean) |
+| **Tab 5** | Advanced Filters | Comparisons (price range) |
+| **Tab 6** | Sorting & Limit | orderBy + limit combinations |
+
+---
+
+## **Sample Data for Testing**
+
+Add this sample data to Firestore for testing queries:
+
+```javascript
+// Firestore Collection: items
+
+{
+  id: "plant1",
+  name: "Monstera Deliciosa",
+  price: 45,
+  status: "available",
+  inStock: true,
+  tags: ["airPurifying", "lowMaintenance"],
+  createdAt: 2026-02-26,
+  description: "Large tropical plant"
+}
+
+{
+  id: "plant2",
+  name: "Pothos",
+  price: 15,
+  status: "available",
+  inStock: true,
+  tags: ["trailing", "airPurifying"],
+  createdAt: 2026-02-27,
+  description: "Easy to grow climbing vine"
+}
+
+{
+  id: "plant3",
+  name: "Orchid",
+  price: 65,
+  status: "available",
+  inStock: false,
+  tags: ["exotic", "flowering", "rare"],
+  createdAt: 2026-02-28,
+  description: "Beautiful rare flowers"
+}
+
+{
+  id: "plant4",
+  name: "Snake Plant",
+  price: 25,
+  status: "available",
+  inStock: true,
+  tags: ["succulent", "lowMaintenance"],
+  createdAt: 2026-03-01,
+  description: "Extremely durable"
+}
+```
+
+---
+
+## **Testing Queries in the App**
+
+### **Test Equality Filter**
+1. Open **FirestoreDemoScreen** → **Tab 4: Query Examples**
+2. View "Equality Filter" card
+3. **Expected:** Only items with `status: "available"` shown ✅
+
+### **Test Price Range Filter**
+1. Open **Tab 5: Advanced Filters**
+2. View "Price Range" card
+3. **Expected:** Plants between $30-$150 shown ✅
+
+### **Test Sorting**
+1. Open **Tab 6: Sorting & Limit**
+2. Tap "Ascending Sort" → Items sorted low to high price ✅
+3. Tap "Descending Sort" → Items sorted high to low ✅
+
+### **Test Limit**
+1. View "Limit Results" card
+2. **Expected:** Only 5 newest items shown ✅
+
+### **Test Complex Query**
+1. View "Complex Query" card
+2. **Expected:** In-stock items, sorted by price, max 10 shown ✅
+
+---
+
+## **Common Query Mistakes to Avoid**
+
+### **Mistake 1: orderBy Without Index**
+```dart
+// ❌ Error: No index for this combination
+.where('status', isEqualTo: 'active')
+.orderBy('price')  // Requires index
+```
+**Fix:** Create composite index (Firestore prompts you)
+
+### **Mistake 2: Multiple orderBy Without Index**
+```dart
+// ❌ Risky: Requires complex index
+.orderBy('status')
+.orderBy('price')
+```
+**Fix:** Use only one orderBy, or create index
+
+### **Mistake 3: Fetching Entire Collection**
+```dart
+// ❌ Slow: Expensive on large collections
+.snapshots()  // No filter, loads everything
+```
+**Fix:** Add `.where()` and `.limit()`
+
+### **Mistake 4: Querying on Unindexed Fields**
+```dart
+// ❌ Slow: No performance optimization
+.where('description', isEqualTo: 'text')  // Text search is slow
+```
+**Fix:** Use search library (Algolia, Meilisearch) for text search
+
+---
+
+## **Production Deployment Checklist**
+
+Before deploying PlantConnect with Firestore queries:
+
+- [ ] All frequently-queried fields have indexes created
+- [ ] Composite indexes built for filter + sort combinations
+- [ ] Queries limited with `.limit()` for pagination
+- [ ] Error handling added for query failures
+- [ ] Real-time listeners cleaned up on screen close (avoid memory leaks)
+- [ ] Screenshots of Firestore console indexes taken
+- [ ] Query performance tested with larger datasets
+
+---
+
+## **Summary: Query Types Used**
+
+| Query Type | Method | Used For |
+|-----------|--------|----------|
+| Equality | `.where(field, isEqualTo: value)` | Status, boolean filters |
+| Comparison | `.where(field, isGreaterThan: value)` | Price ranges, dates |
+| Array | `.where(field, arrayContains: value)` | Tags, categories |
+| Sorting | `.orderBy(field)` | Sort by price, date, name |
+| Limiting | `.limit(count)` | Pagination, featured items |
+| Real-time | `.snapshots()` | Live updates |
+| One-time | `.get()` | Single screen load |
+
+---
+
 ### **Next Steps for Production**
 
 Before deploying PlantConnect:

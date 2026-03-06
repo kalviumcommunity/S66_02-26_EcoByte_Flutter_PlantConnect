@@ -17,6 +17,9 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
   String? _editingDocId;
   bool _isLoading = false;
   
+  // Query filter state
+  String _selectedQueryType = 'all'; // all, equality, comparison, array, sorted, limited, complex
+  
   // Security: Rate limiting to prevent write spam
   DateTime? _lastWriteTime;
   static const Duration _minTimeBetweenWrites = Duration(seconds: 1);
@@ -30,16 +33,19 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 6,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Firestore CRUD Demo'),
+          title: const Text('Firestore Query Demo'),
           bottom: const TabBar(
+            isScrollable: true,
             tabs: [
               Tab(text: 'Write Data'),
               Tab(text: 'Stream Data'),
               Tab(text: 'Single Doc'),
-              Tab(text: 'Query Data'),
+              Tab(text: 'Query Examples'),
+              Tab(text: 'Advanced Filters'),
+              Tab(text: 'Sorting & Limit'),
             ],
           ),
         ),
@@ -51,8 +57,12 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
             _buildStreamDataTab(),
             // Tab 3: Single Document (FutureBuilder)
             _buildSingleDocumentTab(),
-            // Tab 4: Query with Filters
-            _buildQueryDataTab(),
+            // Tab 4: Query Examples
+            _buildQueryExamplesTab(),
+            // Tab 5: Advanced Filters
+            _buildAdvancedFiltersTab(),
+            // Tab 6: Sorting and Limiting
+            _buildSortingAndLimitTab(),
           ],
         ),
       ),
@@ -828,8 +838,352 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
     );
   }
 
+    // =================================
+  // TAB 4: Query Examples
   // =================================
-  // TAB 4: Query with Filters
+  Widget _buildQueryExamplesTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Info Card
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Query Examples',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Basic filtering examples to narrow down documents.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Equality Filter Example
+          _buildQueryCard(
+            title: 'Equality Filter (.where)',
+            description: 'Find all items with status = "available"',
+            code: '.where("status", isEqualTo: "available")',
+            stream: FirebaseFirestore.instance
+                .collection('items')
+                .where('status', isEqualTo: 'available')
+                .snapshots(),
+          ),
+          const SizedBox(height: 16),
+
+          // Array Contains Filter Example
+          _buildQueryCard(
+            title: 'Array Contains Filter',
+            description: 'Find all items with "airPurifying" in tags',
+            code: '.where("tags", arrayContains: "airPurifying")',
+            stream: FirebaseFirestore.instance
+                .collection('items')
+                .where('tags', arrayContains: 'airPurifying')
+                .snapshots(),
+          ),
+          const SizedBox(height: 16),
+
+          // Boolean Filter Example
+          _buildQueryCard(
+            title: 'Boolean Filter',
+            description: 'Find all items that are in stock',
+            code: '.where("inStock", isEqualTo: true)',
+            stream: FirebaseFirestore.instance
+                .collection('items')
+                .where('inStock', isEqualTo: true)
+                .snapshots(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =================================
+  // TAB 5: Advanced Filters
+  // =================================
+  Widget _buildAdvancedFiltersTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Info Card
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Advanced Filters',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Comparison operators for numerical and date fields.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Greater Than Filter
+          _buildQueryCard(
+            title: 'Greater Than Filter (.isGreaterThan)',
+            description: 'Find items with price > 50',
+            code: '.where("price", isGreaterThan: 50)',
+            stream: FirebaseFirestore.instance
+                .collection('items')
+                .where('price', isGreaterThan: 50)
+                .snapshots(),
+          ),
+          const SizedBox(height: 16),
+
+          // Less Than Or Equal Filter
+          _buildQueryCard(
+            title: 'Less Than Or Equal Filter',
+            description: 'Find items with price <= 100',
+            code: '.where("price", isLessThanOrEqualTo: 100)',
+            stream: FirebaseFirestore.instance
+                .collection('items')
+                .where('price', isLessThanOrEqualTo: 100)
+                .snapshots(),
+          ),
+          const SizedBox(height: 16),
+
+          // Combined Filters (Range Query)
+          _buildQueryCard(
+            title: 'Price Range (Combined Filters)',
+            description: 'Find items with price between 30 and 150',
+            code: '.where("price", isGreaterThanOrEqualTo: 30).where("price", isLessThanOrEqualTo: 150)',
+            stream: FirebaseFirestore.instance
+                .collection('items')
+                .where('price', isGreaterThanOrEqualTo: 30)
+                .where('price', isLessThanOrEqualTo: 150)
+                .snapshots(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =================================
+  // TAB 6: Sorting and Limiting
+  // =================================
+  Widget _buildSortingAndLimitTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Info Card
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Sorting & Limiting Results',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'orderBy() for sorting and limit() for pagination.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Sort Ascending
+          _buildQueryCard(
+            title: 'Ascending Sort (.orderBy)',
+            description: 'Sort items by price (lowest first)',
+            code: '.orderBy("price")',
+            stream: FirebaseFirestore.instance
+                .collection('items')
+                .orderBy('price')
+                .snapshots(),
+          ),
+          const SizedBox(height: 16),
+
+          // Sort Descending
+          _buildQueryCard(
+            title: 'Descending Sort',
+            description: 'Sort items by price (highest first)',
+            code: '.orderBy("price", descending: true)',
+            stream: FirebaseFirestore.instance
+                .collection('items')
+                .orderBy('price', descending: true)
+                .snapshots(),
+          ),
+          const SizedBox(height: 16),
+
+          // Limit Results
+          _buildQueryCard(
+            title: 'Limit Results (.limit)',
+            description: 'Show only the first 5 items (sorted by date, newest first)',
+            code: '.orderBy("createdAt", descending: true).limit(5)',
+            stream: FirebaseFirestore.instance
+                .collection('items')
+                .orderBy('createdAt', descending: true)
+                .limit(5)
+                .snapshots(),
+          ),
+          const SizedBox(height: 16),
+
+          // Complex Query: Filter + Sort + Limit
+          _buildQueryCard(
+            title: 'Complex Query (Filter + Sort + Limit)',
+            description: 'In-stock items, sorted by price (lowest first), top 10',
+            code: '.where("inStock", isEqualTo: true).orderBy("price").limit(10)',
+            stream: FirebaseFirestore.instance
+                .collection('items')
+                .where('inStock', isEqualTo: true)
+                .orderBy('price')
+                .limit(10)
+                .snapshots(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to build query result cards
+  Widget _buildQueryCard({
+    required String title,
+    required String description,
+    required String code,
+    required Stream<QuerySnapshot> stream,
+  }) {
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  color: Colors.grey[200],
+                  padding: const EdgeInsets.all(8),
+                  child: Text(
+                    code,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // Stream Results
+          StreamBuilder<QuerySnapshot>(
+            stream: stream,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: CircularProgressIndicator(),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red),
+                      const SizedBox(height: 8),
+                      Text('Error: ${snapshot.error}'),
+                    ],
+                  ),
+                );
+              }
+
+              final docs = snapshot.data?.docs ?? [];
+
+              if (docs.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('No results found'),
+                );
+              }
+
+              return SizedBox(
+                height: 200,
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(8.0),
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final item = docs[index];
+                    final data = item.data() as Map<String, dynamic>;
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.green.shade200),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            data['name'] ?? 'Unknown',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          if (data['price'] != null)
+                            Text('Price: \$${data['price']}', style: const TextStyle(fontSize: 12)),
+                          if (data['inStock'] != null)
+                            Text('In Stock: ${data['inStock']}', style: const TextStyle(fontSize: 12)),
+                          if (data['status'] != null)
+                            Text('Status: ${data['status']}', style: const TextStyle(fontSize: 12)),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =================================
+  // TAB 4 (OLD): Query with Filters
   // =================================
   Widget _buildQueryDataTab() {
     return Column(
