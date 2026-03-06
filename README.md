@@ -2229,6 +2229,543 @@ The `FirestoreDemoScreen` in `lib/screens/firestore_demo_screen.dart` demonstrat
 
 ---
 
+## 🔐 Firestore Secure Write & Update Operations
+
+### **Overview: Multi-Layer Security**
+
+Secure Firestore operations require protection at multiple levels:
+
+1. **Authentication** - Verify user identity
+2. **Authorization** - Enforce access control (ownership)
+3. **Validation** - Sanitize and validate input
+4. **Rate Limiting** - Prevent abuse and DoS attacks
+5. **Data Integrity** - Use server timestamps and atomic operations
+6. **Error Handling** - Log safely without exposing sensitive data
+
+### **1. Authentication Verification**
+
+All write operations must verify the user is logged in:
+
+```dart
+// ✅ CORRECT: Always check authentication first
+String _getCurrentUserId() {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) {
+    throw FirestoreSecurityException('User is not authenticated');
+  }
+  return uid;
+}
+
+// Use this in every write operation
+Future<String> addSecureDocument(String collection, Map<String, dynamic> data) async {
+  final uid = _getCurrentUserId();  // Throws if not authenticated
+  
+  // Proceed with write using uid...
+}
+```
+
+**Why This Matters:**
+- ✅ Prevents unauthenticated users from writing data
+- ✅ Links data to specific user for ownership tracking
+- ✅ Acts as first layer before Firestore rules
+
+### **2. Ownership Verification**
+
+Before updating or deleting, verify the user owns the document:
+
+```dart
+// ✅ CORRECT: Verify ownership before update/delete
+Future<void> _verifyDocumentOwnership(
+  String collection,
+  String docId,
+  String uid,
+) async {
+  final doc = await FirebaseFirestore.instance
+      .collection(collection)
+      .doc(docId)
+      .get();
+
+  if (!doc.exists) {
+    throw FirestoreSecurityException('Document does not exist');
+  }
+
+  final docUid = doc.get('uid');
+  if (docUid != uid) {
+    throw FirestoreSecurityException(
+      'You do not have permission to modify this document',
+    );
+  }
+}
+
+// Use before updates/deletes:
+Future<void> updateSecureDocument(
+  String collection,
+  String docId,
+  Map<String, dynamic> data,
+) async {
+  final uid = _getCurrentUserId();
+  await _verifyDocumentOwnership(collection, docId, uid);  // Verify first!
+  
+  // Now safe to update
+  await FirebaseFirestore.instance
+      .collection(collection)
+      .doc(docId)
+      .update(data);
+}
+```
+
+**Why This Is Critical:**
+- ✅ Prevents users from modifying other users' data
+- ✅ Client-side security (complements server rules)
+- ✅ Fast rejection before database operation
+
+### **3. Input Validation & Sanitization**
+
+Validate all data before writing:
+
+```dart
+// ✅ CORRECT: Validate input comprehensively
+String? _validateTaskInput(String title, String description) {
+  // Check if empty
+  if (title.isEmpty) {
+    return 'Task title cannot be empty';
+  }
+  if (description.isEmpty) {
+    return 'Task description cannot be empty';
+  }
+
+  // Enforce field length constraints (prevents DoS)
+  const int maxTitleLength = 100;
+  const int maxDescriptionLength = 500;
+  
+  if (title.length > maxTitleLength) {
+    return 'Title must be 100 characters or less';
+  }
+  if (description.length > maxDescriptionLength) {
+    return 'Description must be 500 characters or less';
+  }
+
+  // Check for only whitespace
+  if (title.trim().isEmpty) {
+    return 'Title cannot contain only spaces';
+  }
+
+  return null;  // Validation passed
+}
+
+// Use before every write:
+Future<void> _handleSubmit() async {
+  final title = _titleController.text.trim();
+  final description = _descriptionController.text.trim();
+  
+  // Validate first
+  final validationError = _validateTaskInput(title, description);
+  if (validationError != null) {
+    _showErrorSnackBar(validationError);
+    return;
+  }
+  
+  // Now safe to write
+  await addSecureTask(title, description);
+}
+```
+
+**Field Size Constraints:**
+```dart
+static const int maxTitleLength = 100;              // ~100 bytes
+static const int maxDescriptionLength = 500;       // ~500 bytes
+static const int maxLocationLength = 100;          // Address field
+```
+
+**Benefits:**
+- ✅ Prevents invalid/spam data in database
+- ✅ Protects against extremely large documents (DoS)
+- ✅ Improves data quality and consistency
+
+### **4. Create Operations (Secure)**
+
+```dart
+// ✅ CORRECT: Secure document creation
+Future<String> addSecureDocument(
+  String collection,
+  Map<String, dynamic> data,
+) async {
+  final uid = _getCurrentUserId();
+
+  try {
+    // Validate data
+    _validateDocumentData(data);
+
+    // Add with security fields
+    final docRef = await FirebaseFirestore.instance
+        .collection(collection)
+        .add({
+          ...data,
+          'uid': uid,  // ESSENTIAL: Associate with user
+          'createdAt': FieldValue.serverTimestamp(),  // Server-side timestamp
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+    print('✓ Document created: ${docRef.id}');
+    return docRef.id;
+  } catch (e) {
+    print('✗ Error creating document: $e');
+    rethrow;
+  }
+}
+```
+
+**Security Features:**
+- ✅ User authentication verified
+- ✅ Document linked to user via `uid`
+- ✅ Server timestamp prevents manipulation
+- ✅ Auto-generated ID prevents predictable IDs
+- ✅ Proper error handling
+
+### **5. Update Operations (Secure)**
+
+```dart
+// ✅ CORRECT: Secure document update
+Future<void> updateSecureDocument(
+  String collection,
+  String docId,
+  Map<String, dynamic> data,
+) async {
+  final uid = _getCurrentUserId();
+
+  try {
+    // Step 1: Verify document belongs to user
+    await _verifyDocumentOwnership(collection, docId, uid);
+
+    // Step 2: Remove security fields (prevent override)
+    final safeData = Map<String, dynamic>.from(data);
+    safeData.remove('uid');         // Block privilege escalation
+    safeData.remove('createdAt');   // Block timestamp tampering
+    safeData.remove('id');          // Block ID modification
+
+    // Step 3: Add update timestamp
+    safeData['updatedAt'] = FieldValue.serverTimestamp();
+
+    // Step 4: Perform update
+    await FirebaseFirestore.instance
+        .collection(collection)
+        .doc(docId)
+        .update(safeData);
+
+    print('✓ Document updated: $docId');
+  } catch (e) {
+    print('✗ Error updating document: $e');
+    rethrow;
+  }
+}
+```
+
+**Security Features:**
+- ✅ Ownership verified before modification
+- ✅ Security fields protected from override
+- ✅ Audit trail via `updatedAt`
+- ✅ Prevents accidental field deletion
+
+### **6. Delete Operations (Secure)**
+
+```dart
+// ✅ CORRECT: Secure document deletion
+Future<void> deleteSecureDocument(String collection, String docId) async {
+  final uid = _getCurrentUserId();
+
+  try {
+    // Verify ownership before deletion
+    await _verifyDocumentOwnership(collection, docId, uid);
+
+    // Perform deletion
+    await FirebaseFirestore.instance
+        .collection(collection)
+        .doc(docId)
+        .delete();
+
+    print('✓ Document deleted: $docId');
+  } catch (e) {
+    print('✗ Error deleting document: $e');
+    rethrow;
+  }
+}
+```
+
+### **7. Rate Limiting (Prevent Abuse)**
+
+```dart
+// ✅ CORRECT: Rate limiting to prevent write spam
+DateTime? _lastWriteTime;
+static const Duration _minTimeBetweenWrites = Duration(seconds: 1);
+
+bool _checkRateLimit() {
+  if (_lastWriteTime == null) {
+    _lastWriteTime = DateTime.now();
+    return true;
+  }
+
+  final now = DateTime.now();
+  final timeSinceLastWrite = now.difference(_lastWriteTime!);
+
+  if (timeSinceLastWrite < _minTimeBetweenWrites) {
+    return false;  // Block: too soon
+  }
+
+  _lastWriteTime = now;
+  return true;
+}
+
+// Use before writes
+Future<void> _handleSubmit() async {
+  if (!_checkRateLimit()) {
+    _showErrorSnackBar('Wait a moment before the next action');
+    return;
+  }
+  
+  // Proceed with write...
+}
+```
+
+**Benefits:**
+- ✅ Prevents users from spamming writes
+- ✅ Reduces write costs
+- ✅ Protects against DoS attacks
+- ✅ Improves database performance
+
+### **8. Error Handling (Secure)**
+
+```dart
+// ✅ CORRECT: Secure error handling
+Future<void> executeSecureWrite() async {
+  try {
+    // Validate input
+    _validateInput();
+    
+    // Check auth
+    _getCurrentUserId();
+    
+    // Perform write
+    await updateSecureDocument('tasks', docId, data);
+    
+    _showSuccessSnackBar('✓ Updated successfully!');
+  } on FirestoreSecurityException catch (e) {
+    // Security-specific error
+    _showErrorSnackBar(e.message);
+  } on FirebaseException catch (e) {
+    // Firebase error with specific handling
+    if (e.code == 'permission-denied') {
+      _showErrorSnackBar('Access denied');
+    } else if (e.code == 'not-found') {
+      _showErrorSnackBar('Document not found');
+    } else {
+      _showErrorSnackBar('An error occurred');
+    }
+  } catch (e) {
+    // Unexpected error
+    print('Unexpected error: $e');  // Log for debugging
+    _showErrorSnackBar('An unexpected error occurred');  // Generic message
+  }
+}
+```
+
+**Security Principles:**
+- ✅ Log detailed errors server-side only
+- ✅ Show generic messages to users
+- ✅ Never expose security rules to client
+- ✅ Log suspicious patterns for audit trail
+
+### **9. Batch Atomic Operations**
+
+```dart
+// ✅ CORRECT: Atomic writes for consistency
+Future<void> createTaskWithAnalytics(
+  String title,
+  String description,
+) async {
+  final uid = _getCurrentUserId();
+
+  try {
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      // Create task
+      final taskRef = FirebaseFirestore.instance
+          .collection('tasks')
+          .doc();
+      
+      transaction.set(taskRef, {
+        'uid': uid,
+        'title': title,
+        'description': description,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // Update user stats (atomic with task creation)
+      final userRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid);
+      
+      transaction.update(userRef, {
+        'taskCount': FieldValue.increment(1),
+        'lastActivity': FieldValue.serverTimestamp(),
+      });
+    });
+  } catch (e) {
+    print('Transaction failed: $e');
+    rethrow;
+  }
+}
+```
+
+**Benefits:**
+- ✅ All writes succeed or all fail (no partial updates)
+- ✅ Maintains data consistency
+- ✅ Single network round trip
+- ✅ Better performance at scale
+
+### **Server-Side Security Rules (Firestore Console)**
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Only owner can read/write their tasks
+    match /tasks/{taskId} {
+      allow read, write: if request.auth.uid == resource.data.uid;
+      
+      // Validate on create
+      allow create: if request.auth.uid == request.resource.data.uid &&
+                       request.resource.data.title != null &&
+                       request.resource.data.description != null;
+      
+      // Validate field lengths
+      allow write: if request.resource.data.title.size() <= 100 &&
+                       request.resource.data.description.size() <= 500;
+    }
+    
+    // Block everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+```
+
+**Rule Explanations:**
+- `request.auth.uid == resource.data.uid` - Only owner can modify
+- `size() <= 100` - Prevent overly large documents
+- `!= null` - Enforce required fields
+- `if false` - Deny all by default (secure default)
+
+### **Security Checklist Before Production**
+
+- [ ] All writes check `isAuthenticated`
+- [ ] All updates/deletes verify user ownership
+- [ ] Input validation on all fields
+- [ ] Field size limits enforced
+- [ ] Server timestamps used (no client timestamps)
+- [ ] Security rules deployed and tested
+- [ ] Rate limiting enabled
+- [ ] Error messages don't expose sensitive data
+- [ ] Sensitive operations logged for audit
+- [ ] Security rules tested against attack patterns
+- [ ] Firebase security rules review completed
+- [ ] Backup and recovery plan documented
+
+### **Common Security Vulnerabilities**
+
+**❌ Vulnerability #1: Missing User Association**
+```dart
+// BAD: Document not associated with user
+await FirebaseFirestore.instance.collection('tasks').add({
+  'title': title,
+  'description': description,
+  // Missing 'uid' field
+});
+```
+
+**✅ Fix:**
+```dart
+// GOOD: Always include uid
+await FirebaseFirestore.instance.collection('tasks').add({
+  'uid': _getCurrentUserId(),
+  'title': title,
+  'description': description,
+});
+```
+
+**❌ Vulnerability #2: Trusting Client-Side UID**
+```dart
+// BAD: User can spoof UID
+await FirebaseFirestore.instance.collection('tasks').add({
+  'uid': userInput,  // User can change this!
+  'title': title,
+});
+```
+
+**✅ Fix:**
+```dart
+// GOOD: Always use authenticated UID
+await FirebaseFirestore.instance.collection('tasks').add({
+  'uid': FirebaseAuth.instance.currentUser!.uid,  // Guaranteed by Firebase
+  'title': title,
+});
+```
+
+**❌ Vulnerability #3: No Validation**
+```dart
+// BAD: No validation before write
+await FirebaseFirestore.instance
+    .collection('tasks')
+    .add({'title': input});
+```
+
+**✅ Fix:**
+```dart
+// GOOD: Validate first
+if (input.isEmpty || input.length > 100) {
+  throw Exception('Invalid input');
+}
+await FirebaseFirestore.instance
+    .collection('tasks')
+    .add({'title': input});
+```
+
+### **Updated FirestoreService Implementation**
+
+PlantConnect includes an enhanced `FirestoreService` with all security best practices:
+
+**Location:** `lib/services/firestore_service.dart`
+
+**Key Secure Methods:**
+- `createUserProfile()` - Secure user profile creation
+- `addSecureDocument()` - Safe document addition with ownership
+- `updateSecureDocument()` - Update with ownership verification
+- `deleteSecureDocument()` - Delete with ownership check
+- `addTask()` - Task-specific secure creation
+- `updateTask()` / `deleteTask()` - Task-specific operations
+- `toggleTaskCompletion()` - State change with ownership check
+
+**Example Usage:**
+```dart
+final service = FirestoreService();
+
+// Create (auto-checks auth)
+final docId = await service.addSecureDocument('tasks', {
+  'title': 'My Task',
+  'description': 'Task description',
+});
+
+// Update (auto-verifies ownership)
+await service.updateSecureDocument('tasks', docId, {
+  'title': 'Updated Task',
+});
+
+// Delete (auto-verifies ownership)
+await service.deleteSecureDocument('tasks', docId);
+```
+
+---
+
 ### **Security Best Practices**
 
 Firestore Security Rules enforce permissions at the database level:
