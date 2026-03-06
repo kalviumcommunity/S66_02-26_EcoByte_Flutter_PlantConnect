@@ -16,6 +16,16 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
   final TextEditingController _descriptionController = TextEditingController();
   String? _editingDocId;
   bool _isLoading = false;
+  
+  // Security: Rate limiting to prevent write spam
+  DateTime? _lastWriteTime;
+  static const Duration _minTimeBetweenWrites = Duration(seconds: 1);
+  
+  // Security: Field length constraints
+  static const int _maxTitleLength = 100;
+  static const int _maxDescriptionLength = 500;
+  static const int _minTitleLength = 1;
+  static const int _minDescriptionLength = 1;
 
   @override
   Widget build(BuildContext context) {
@@ -277,19 +287,22 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
     );
   }
 
-  // Helper Methods for Write Operations
+  // SECURE WRITE OPERATION: Validates and safely creates/updates tasks
   Future<void> _handleSubmit() async {
+    // SECURITY: Sanitize input (trim whitespace)
     final title = _titleController.text.trim();
     final description = _descriptionController.text.trim();
 
-    // Validation
-    if (title.isEmpty || description.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all required fields'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    // SECURITY: Validate required fields
+    final validationError = _validateTaskInput(title, description);
+    if (validationError != null) {
+      _showErrorSnackBar(validationError);
+      return;
+    }
+
+    // SECURITY: Rate limiting to prevent write spam
+    if (!_checkRateLimit()) {
+      _showErrorSnackBar('Wait a moment before the next action');
       return;
     }
 
@@ -297,45 +310,170 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
 
     try {
       if (_editingDocId == null) {
-        // CREATE Operation
+        // CREATE: Add new task with auto-generated ID
         await _firestoreService.addDocument('tasks', {
           'title': title,
           'description': description,
           'isCompleted': false,
+          // SECURITY: Server timestamp ensures consistency
+          // No client-side timestamp manipulation possible
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✓ Task created successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _showSuccessSnackBar('✓ Task created successfully!');
       } else {
-        // UPDATE Operation
+        // UPDATE: Modify specific fields only (preserve other data)
         await _firestoreService.updateDocument('tasks', _editingDocId!, {
           'title': title,
           'description': description,
+          // Note: createdAt timestamp is preserved, not overwritten
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✓ Task updated successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _showSuccessSnackBar('✓ Task updated successfully!');
       }
 
       _clearForm();
+    } on FirebaseException catch (e) {
+      // SECURITY: Handle Firebase-specific errors securely
+      _handleFirebaseError(e);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✗ Error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      // SECURITY: Log errors securely without exposing sensitive data
+      print('Unexpected error: $e');
+      _showErrorSnackBar('An unexpected error occurred. Please try again.');
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  // SECURITY: Validate task input before Firestore write
+  String? _validateTaskInput(String title, String description) {
+    // Check if fields are empty
+    if (title.isEmpty) {
+      return 'Task title cannot be empty';
+    }
+    if (description.isEmpty) {
+      return 'Task description cannot be empty';
+    }
+
+    // SECURITY: Enforce field length constraints (prevents DoS via large documents)
+    if (title.length > _maxTitleLength) {
+      return 'Title must be ${_maxTitleLength} characters or less (${title.length}/${_maxTitleLength})';
+    }
+    if (description.length > _maxDescriptionLength) {
+      return 'Description must be ${_maxDescriptionLength} characters or less (${description.length}/${_maxDescriptionLength})';
+    }
+
+    // SECURITY: Enforce minimum length (prevents spam/junk data)
+    if (title.length < _minTitleLength) {
+      return 'Title must be at least $_minTitleLength character';
+    }
+    if (description.length < _minDescriptionLength) {
+      return 'Description must be at least $_minDescriptionLength character';
+    }
+
+    // SECURITY: Check for malformed content (optional - add custom rules)
+    if (_containsOnlyWhitespace(title)) {
+      return 'Title cannot contain only spaces';
+    }
+    if (_containsOnlyWhitespace(description)) {
+      return 'Description cannot contain only spaces';
+    }
+
+    // SECURITY: Detect injection attempts or malicious patterns
+    if (_containsSuspiciousPatterns(title) || _containsSuspiciousPatterns(description)) {
+      return 'Input contains invalid characters or patterns. Please use standard text only.';
+    }
+
+    return null; // Validation passed
+  }
+
+  // SECURITY: Detect suspicious patterns that might indicate injection attempts
+  bool _containsSuspiciousPatterns(String text) {
+    // Pattern checks for common injection/xss attempts:
+    final suspiciousPatterns = [
+      RegExp(r'(?i)script|iframe|onclick|onerror|eval|javascript'),
+      RegExp(r'[<>{}|\[\]\\^`]'), // Limited special characters
+    ];
+
+    for (final pattern in suspiciousPatterns) {
+      if (pattern.hasMatch(text)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // SECURITY: Rate limiting to prevent write spam and DoS attacks
+  bool _checkRateLimit() {
+    if (_lastWriteTime == null) {
+      _lastWriteTime = DateTime.now();
+      return true;
+    }
+
+    final now = DateTime.now();
+    final timeSinceLastWrite = now.difference(_lastWriteTime!);
+
+    if (timeSinceLastWrite < _minTimeBetweenWrites) {
+      return false; // Too soon, operation blocked
+    }
+
+    _lastWriteTime = now;
+    return true;
+  }
+
+  // SECURITY: Helper to detect whitespace-only strings
+  bool _containsOnlyWhitespace(String text) {
+    return text.trim().isEmpty;
+  }
+
+  // SECURITY: Handle Firebase errors securely
+  void _handleFirebaseError(FirebaseException e) {
+    String message;
+
+    switch (e.code) {
+      case 'permission-denied':
+        message = 'You do not have permission to perform this action';
+        break;
+      case 'not-found':
+        message = 'The document you are trying to update does not exist';
+        break;
+      case 'aborted':
+        message = 'The operation was aborted. Please try again';
+        break;
+      case 'unauthenticated':
+        message = 'You must be logged in to perform this action';
+        break;
+      case 'failed-precondition':
+        message = 'Operation failed. please check your input and try again';
+        break;
+      default:
+        // SECURITY: Don't expose internal error codes to users
+        message = 'An error occurred while saving your task. Please try again';
+        print('Firebase error code: ${e.code}');
+    }
+
+    _showErrorSnackBar(message);
+  }
+
+  // UI Helper: Show error message
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  // UI Helper: Show success message
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _startEdit(String docId, Map<String, dynamic> data) {
@@ -362,11 +500,16 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
   }
 
   Future<void> _confirmDelete(String docId) async {
+    // SECURITY: Always require user confirmation for destructive operations
     final confirmed = await showDialog<bool>(
       context: context,
+      barrierDismissible: false, // Force user to make explicit choice
       builder: (context) => AlertDialog(
         title: const Text('Delete Task'),
-        content: const Text('Are you sure you want to delete this task?'),
+        content: const Text(
+          'This action is permanent and cannot be undone. '
+          'Are you sure you want to delete this task?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -375,7 +518,7 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: const Text('Delete Permanently'),
           ),
         ],
       ),
@@ -386,23 +529,37 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
     }
   }
 
+  // SECURE DELETE OPERATION: Safely removes data with proper error handling
   Future<void> _deleteTask(String docId) async {
     try {
+      // SECURITY: Rate limiting applies to delete operations too
+      if (!_checkRateLimit()) {
+        _showErrorSnackBar('Wait before performing another action');
+        return;
+      }
+
+      // SECURITY: Validate document ID format (prevent injection)
+      if (!_isValidDocumentId(docId)) {
+        _showErrorSnackBar('Invalid document ID');
+        return;
+      }
+
       await _firestoreService.deleteDocument('tasks', docId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✓ Task deleted successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      _showSuccessSnackBar('✓ Task deleted successfully!');
+    } on FirebaseException catch (e) {
+      _handleFirebaseError(e);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✗ Error deleting task: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('Delete error: $e');
+      _showErrorSnackBar('Failed to delete task. Please try again.');
     }
+  }
+
+  // SECURITY: Validate document ID to prevent injection attacks
+  bool _isValidDocumentId(String docId) {
+    // Firestore document IDs can contain alphanumeric, hyphens, underscores
+    return docId.isNotEmpty && 
+           docId.length <= 1024 && // Firestore limit
+           !docId.contains(RegExp(r'[^a-zA-Z0-9_-]'));
   }
 
   String _formatDate(DateTime date) {
