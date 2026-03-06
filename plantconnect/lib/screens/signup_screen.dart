@@ -31,7 +31,9 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   void _handleSignup() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty || _nameController.text.isEmpty) {
+    if (_emailController.text.isEmpty ||
+        _passwordController.text.isEmpty ||
+        _nameController.text.isEmpty) {
       setState(() {
         _errorMessage = 'Please fill in all fields';
       });
@@ -51,15 +53,12 @@ class _SignupScreenState extends State<SignupScreen> {
 
       if (user != null) {
         // Add user data to Firestore
-        await _firestoreService.addUserData(
-          user.uid,
-          {
-            'uid': user.uid,
-            'name': _nameController.text.trim(),
-            'email': _emailController.text.trim(),
-            'createdAt': DateTime.now(),
-          },
-        );
+        await _firestoreService.addUserData(user.uid, {
+          'uid': user.uid,
+          'name': _nameController.text.trim(),
+          'email': _emailController.text.trim(),
+          'createdAt': DateTime.now(),
+        });
 
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
@@ -97,18 +96,11 @@ class _SignupScreenState extends State<SignupScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const SizedBox(height: 40),
-            Icon(
-              Icons.eco,
-              size: 80,
-              color: Colors.green[700],
-            ),
+            Icon(Icons.eco, size: 80, color: Colors.green[700]),
             const SizedBox(height: 20),
             const Text(
               'Create Your PlantConnect Account',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 30),
@@ -203,7 +195,9 @@ class _SignupScreenState extends State<SignupScreen> {
                 GestureDetector(
                   onTap: () {
                     Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (context) => const LoginScreen()),
+                      MaterialPageRoute(
+                        builder: (context) => const LoginScreen(),
+                      ),
                       (route) => false,
                     );
                   },
