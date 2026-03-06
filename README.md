@@ -9200,3 +9200,610 @@ And a reflection covering:
 
 ---
 
+# ☁️ Firebase Cloud Functions Implementation
+
+## Overview
+
+**Firebase Cloud Functions** are serverless functions that run on Google's infrastructure, automatically scaling based on demand. PlantConnect uses Cloud Functions to handle backend business logic without managing servers.
+
+### What are Cloud Functions?
+
+Cloud Functions provide:
+- ✅ **Automatic Scaling** - From 1 to 10,000 concurrent executions
+- ✅ **Cost Efficiency** - Pay only for execution time
+- ✅ **No Server Management** - Focus on code, not infrastructure
+- ✅ **Real-time Triggers** - React instantly to database changes
+- ✅ **Enhanced Security** - Hide sensitive operations from client
+
+---
+
+## Installation & Setup
+
+### Prerequisites
+
+Ensure you have the following installed:
+- Node.js 18+
+- Firebase CLI (`npm install -g firebase-tools`)
+- Google Cloud project with Billing enabled
+
+### Step 1: Install Firebase Tools
+
+```bash
+npm install -g firebase-tools
+firebase login
+```
+
+### Step 2: Navigate to Functions Directory
+
+```bash
+cd plantconnect/functions
+npm install
+```
+
+### Step 3: Update Flutter Dependencies
+
+The `pubspec.yaml` has been updated with the `cloud_functions` package:
+
+```yaml
+dependencies:
+  cloud_functions: ^5.0.0
+```
+
+Run:
+```bash
+cd plantconnect
+flutter pub get
+```
+
+### Step 4: Verify Firebase Configuration
+
+The `firebase.json` has been updated with functions configuration:
+
+```json
+{
+  "functions": {
+    "source": "functions",
+    "codebase": "default"
+  }
+}
+```
+
+---
+
+## Cloud Functions Implemented
+
+### 1. Callable Function: `sayHello`
+
+**Purpose:** Simple greeting function demonstrating basic Cloud Function usage.
+
+**Code Location:** `functions/index.js`
+
+**Invocation from Flutter:**
+
+```dart
+final functionsService = CloudFunctionsService();
+final message = await functionsService.callSayHello(name: 'Alex');
+print(message);  // "Hello, Alex! Welcome to PlantConnect 🌱"
+```
+
+**Function Signature:**
+```javascript
+export const sayHello = functions.https.onCall((data, context) => {
+  const name = data.name || "User";
+  return {
+    message: `Hello, ${name}! Welcome to PlantConnect 🌱`,
+    timestamp: new Date().toISOString(),
+  };
+});
+```
+
+**Use Cases:**
+- Welcome messages for new users
+- Connectivity testing
+- Simple data transformations
+
+---
+
+### 2. Callable Function: `processPlantData`
+
+**Purpose:** Analyzes plant care requirements and provides personalized recommendations.
+
+**Invocation from Flutter:**
+
+```dart
+final result = await functionsService.processPlantData(
+  plantName: 'Monstera',
+  waterFrequency: 'weekly',
+  sunlight: 'partial shade',
+);
+
+print(result['careLevel']);      // "easy"
+print(result['tips']);            // ["Water your Monstera weekly", ...]
+```
+
+**Function Signature:**
+```javascript
+export const processPlantData = functions.https.onCall(async (data, context) => {
+  const { plantName, waterFrequency, sunlight } = data;
+  
+  // Validation
+  if (!plantName || !waterFrequency || !sunlight) {
+    throw new functions.https.HttpsError("invalid-argument", "Missing required fields");
+  }
+
+  const careLevel = 
+    waterFrequency === "daily" && sunlight === "full sun"
+      ? "medium"
+      : "easy";
+
+  return {
+    success: true,
+    plantName: plantName,
+    careLevel: careLevel,
+    estimatedGrowthTime: "30-60 days",
+    tips: [
+      `Water your ${plantName} ${waterFrequency}`,
+      `Place in ${sunlight}`,
+      `Monitor soil moisture regularly`,
+    ],
+    processedAt: new Date().toISOString(),
+  };
+});
+```
+
+**Use Cases:**
+- Plant identification and analysis
+- Care recommendation engine
+- Personalized instruction generation
+
+---
+
+### 3. Event-Triggered Function: `newUserCreated`
+
+**Purpose:** Automatically initializes user data when a new user document is created in Firestore.
+
+**Trigger:** Document creation in `users/` collection
+
+**Automatic Actions:**
+1. Adds server-side timestamp (`createdAt`)
+2. Sets user level to "beginner"
+3. Initializes plant count to 0
+4. Creates welcome guide subcollection
+
+**Function Signature:**
+```javascript
+export const newUserCreated = functions.firestore
+  .document("users/{userId}")
+  .onCreate(async (snap, context) => {
+    const userId = context.params.userId;
+    
+    await snap.ref.update({
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      userLevel: "beginner",
+      totalPlants: 0,
+    });
+
+    await snap.ref.collection("plantGuides").doc("welcome").set({
+      title: "Welcome to PlantConnect",
+      description: "Guide to getting started with plant care",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+```
+
+**Use Cases:**
+- User onboarding automation
+- Initial profile setup
+- Creating default user data
+
+---
+
+### 4. Event-Triggered Function: `onPlantAdded`
+
+**Purpose:** Updates user statistics automatically when a plant is added to the user's collection.
+
+**Trigger:** Document creation in `users/{userId}/plants/` subcollection
+
+**Automatic Actions:**
+1. Increments the user's total plant count
+2. Records the timestamp of plant addition
+3. Sets initial health status as "healthy"
+4. Records the last watered timestamp
+
+**Function Signature:**
+```javascript
+export const onPlantAdded = functions.firestore
+  .document("users/{userId}/plants/{plantId}")
+  .onCreate(async (snap, context) => {
+    const { userId, plantId } = context.params;
+
+    // Update parent user document
+    const userRef = admin.firestore().collection("users").doc(userId);
+    await userRef.update({
+      totalPlants: admin.firestore.FieldValue.increment(1),
+      lastPlantAddedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Add metadata to plant document
+    await snap.ref.update({
+      addedAt: admin.firestore.FieldValue.serverTimestamp(),
+      healthStatus: "healthy",
+      lastWatered: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+```
+
+**Use Cases:**
+- Automatic statistics tracking
+- Plant health monitoring
+- Audit trail creation
+
+---
+
+### 5. HTTP Function: `generateCareSchedule`
+
+**Purpose:** Generates care schedule for multiple plants in batch.
+
+**Function Signature:**
+```javascript
+export const generateCareSchedule = functions.https.onRequest((req, res) => {
+  const { plants } = req.body;
+  
+  if (!plants || !Array.isArray(plants)) {
+    return res.status(400).json({ error: "Plants array is required" });
+  }
+
+  const schedule = plants.map((plant) => ({
+    name: plant.name,
+    wateringDays: ["Monday", "Wednesday", "Friday"],
+    fertilizingFrequency: "monthly",
+    pruningFrequency: "quarterly",
+    sunExposureHours: 6,
+  }));
+
+  res.json({
+    success: true,
+    schedule: schedule,
+    generatedAt: new Date().toISOString(),
+  });
+});
+```
+
+---
+
+## Flutter Integration
+
+### CloudFunctionsService
+
+The dedicated service handles all Cloud Function invocations.
+
+**Location:** `lib/services/cloud_functions_service.dart`
+
+**Key Features:**
+- Singleton pattern for efficient resource usage
+- Automatic error handling and logging
+- Type-safe API for all functions
+- Support for both callable and HTTP functions
+
+**Example Usage:**
+
+```dart
+import 'package:plantconnect/services/cloud_functions_service.dart';
+
+final service = CloudFunctionsService();
+
+// Call sayHello
+try {
+  final message = await service.callSayHello(name: 'Flutter');
+  print(message);
+} catch (e) {
+  print('Error: $e');
+}
+
+// Process plant data
+try {
+  final result = await service.processPlantData(
+    plantName: 'Philodendron',
+    waterFrequency: 'weekly',
+    sunlight: 'partial shade',
+  );
+  print('Care Level: ${result['careLevel']}');
+} catch (e) {
+  print('Error: $e');
+}
+```
+
+---
+
+### Cloud Functions Demo Screen
+
+A complete demonstration screen showcases all callable functions.
+
+**Location:** `lib/screens/cloud_functions_demo_screen.dart`
+
+**Features:**
+- ✅ Input fields for function parameters
+- ✅ Real-time response display
+- ✅ Loading states and error handling
+- ✅ Informational cards explaining serverless concepts
+- ✅ User-friendly interface with visual feedback
+
+To access the demo:
+1. Run the Flutter app:
+   ```bash
+   flutter run
+   ```
+2. Navigate to the Cloud Functions Demo screen
+3. Test the callable functions with sample inputs
+
+---
+
+## Testing & Deployment
+
+### Local Testing with Emulator
+
+To test functions locally before deploying:
+
+```bash
+# Terminal 1: Start the emulator
+cd plantconnect/functions
+npx firebase emulators:start --only functions
+
+# Terminal 2: Point Flutter to local emulator (optional)
+# In cloud_functions_service.dart, uncomment:
+# _functions.useFunctionsEmulator('localhost', 5001);
+```
+
+### Deploy to Firebase
+
+```bash
+cd plantconnect
+npx firebase deploy --only functions
+```
+
+**Expected Output:**
+```
+✔ Deploy complete!
+
+Deployed 5 functions:
+  - sayHello
+  - processPlantData
+  - newUserCreated
+  - onPlantAdded
+  - generateCareSchedule
+```
+
+### View Logs in Firebase Console
+
+1. Go to [Firebase Console](https://console.firebase.google.com)
+2. Select your project: **plantconnect-7dd0c**
+3. Navigate to **Functions → Logs**
+4. Filter by function name to see execution details
+
+**Example Log Entry:**
+```
+✅ OK
+Function: sayHello
+Execution time: 125ms
+Memory used: 64MB
+Input: {"name": "Alex"}
+Output: {"message": "Hello, Alex! Welcome to PlantConnect 🌱"}
+```
+
+---
+
+## Benefits of Serverless Functions
+
+### 1. Automatic Scaling ⚡
+
+- Handles 1 or 10,000 requests without manual configuration
+- No downtime during traffic spikes
+- Unused capacity costs nothing
+
+### 2. Cost Efficiency 💰
+
+- Pay per 100ms of execution
+- Free tier: 125,000 invocations/month
+- Typical cost: $0.40 per million invocations
+- No server maintenance costs
+
+### 3. No Backend Management 🚀
+
+- No server provisioning or configuration
+- Automatic updates and security patches
+- Built-in logging and monitoring
+- Focus entirely on business logic
+
+### 4. Real-time Reactivity 📊
+
+- Event-triggered functions execute instantly
+- Triggers on database changes, file uploads, etc.
+- Minimal latency for time-critical operations
+- Seamless Firebase integration
+
+### 5. Enhanced Security 🔐
+
+- Sensitive operations hidden from client
+- Server-side validation and business logic
+- User authentication built-in
+- No exposed API keys in client code
+
+### 6. Developer Experience 👨‍💻
+
+- Simple, straightforward API
+- Local emulation before deployment
+- Clear error messages and logging
+- Integrated with Firebase ecosystem
+
+---
+
+## Real-World Use Cases for PlantConnect
+
+### Smart Plant Care Reminders
+
+Automatically check if plants need watering and send notifications:
+
+```javascript
+export const sendWateringReminder = functions.pubsub
+  .schedule('every 24 hours')
+  .onRun(async (context) => {
+    // Check all plants needing water
+    // Send push notifications
+  });
+```
+
+### Plant Identification from Photos
+
+User uploads photo → Function calls Vision API → Returns care instructions.
+
+### Community Plant Database
+
+Track global plant statistics and create trending lists:
+
+```javascript
+export const updatePlantStats = functions.firestore
+  .document("users/{userId}/plants/{plantId}")
+  .onCreate(async (snap, context) => {
+    // Update plant popularity
+    // Aggregate care tips
+    // Create trending list
+  });
+```
+
+### Automated Health Monitoring
+
+Daily health checks for all plants with alert system:
+
+```javascript
+export const monitorPlantHealth = functions.pubsub
+  .schedule('every 6 hours')
+  .onRun(async (context) => {
+    // Check all plants
+    // Detect health issues
+    // Send alerts
+  });
+```
+
+### Social Features & Sharing
+
+Automatic notifications when users follow each other:
+
+```javascript
+export const onFollowUser = functions.firestore
+  .document("userFollows/{followId}")
+  .onCreate(async (snap, context) => {
+    // Send notification
+    // Create follow data
+    // Update user network
+  });
+```
+
+---
+
+## Project Files Structure
+
+```
+plantconnect/
+├── functions/                          (NEW)
+│   ├── package.json                   (Dependencies & scripts)
+│   ├── index.js                       (5 Cloud Function implementations)
+│   └── node_modules/                  (npm packages)
+├── lib/
+│   ├── services/
+│   │   └── cloud_functions_service.dart   (NEW: Service wrapper)
+│   └── screens/
+│       └── cloud_functions_demo_screen.dart (NEW: Demo UI)
+└── firebase.json                      (MODIFIED: Added functions config)
+```
+
+---
+
+## Troubleshooting
+
+### Function Not Deploying?
+
+```bash
+# Check authentication
+npx firebase login:list
+
+# Ensure correct project
+npx firebase use --add
+
+# Deploy with debug output
+npx firebase deploy --only functions --debug
+```
+
+### Getting "Permission Denied" Errors?
+
+1. Verify Firestore Security Rules allow function access
+2. Ensure service account has proper permissions
+3. Check Cloud Functions service is enabled in Google Cloud Console
+
+### Local Testing Issues?
+
+```bash
+# Verify emulator is running on correct port
+# Check firewall settings
+# Ensure no port conflicts (default: 5001)
+```
+
+---
+
+## Next Steps
+
+1. **Deploy to Production:**
+   ```bash
+   npx firebase deploy --only functions
+   ```
+
+2. **Add More Functions:**
+   - Image processing for plant photos
+   - Email notification service
+   - Data cleanup and maintenance jobs
+
+3. **Integrate with Flutter App:**
+   - Add Cloud Functions demo screen to navigation
+   - Create plant care recommendation flow
+   - Implement automated reminders
+
+4. **Monitor & Optimize:**
+   - Check Firebase Console logs regularly
+   - Monitor function execution times
+   - Optimize for cost and performance
+
+---
+
+## Summary: Cloud Functions Ready for Production
+
+| Feature | Status | Details |
+|---------|--------|---------|
+| **Callable Functions** | ✅ Complete | sayHello, processPlantData |
+| **Event Triggers** | ✅ Complete | newUserCreated, onPlantAdded |
+| **Flutter Integration** | ✅ Complete | CloudFunctionsService |
+| **Demo UI** | ✅ Complete | cloud_functions_demo_screen.dart |
+| **Error Handling** | ✅ Complete | Try-catch and validation |
+| **Logging** | ✅ Complete | Firebase Console integration |
+| **Documentation** | ✅ Complete | Code comments and guides |
+| **Deployment Ready** | ✅ Yes | Ready for Firebase deployment |
+
+---
+
+**Commit message suggestion:**
+```
+feat: implemented Firebase Cloud Functions for serverless backend operations
+```
+
+**PR title:**
+```
+[Sprint-2] Firebase Cloud Functions – Serverless Backend Architecture – TeamName
+```
+
+Include in PR:
+- Summary of functions implemented
+- Screenshots of Firebase Console logs
+- Demo screen showing function calls
+- Explanation of why serverless is beneficial
+- Real-world use cases for PlantConnect
+
+---
+
