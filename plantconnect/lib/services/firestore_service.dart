@@ -466,4 +466,320 @@ class FirestoreService {
       rethrow;
     }
   }
+
+  // ============================================================
+  // ADVANCED QUERY OPERATIONS (FILTERING, SORTING, LIMITING)
+  // ============================================================
+
+  /// Query with equality filter
+  /// Example: getDocumentsWhere('plants', 'status', isEqualTo: 'available')
+  Stream<QuerySnapshot> getDocumentsWhere(
+    String collection,
+    String field,
+    dynamic value,
+  ) {
+    try {
+      return _db
+          .collection(collection)
+          .where(field, isEqualTo: value)
+          .snapshots();
+    } catch (e) {
+      print('✗ Error querying documents: $e');
+      rethrow;
+    }
+  }
+
+  /// Query with comparison filters
+  /// Examples:
+  /// - isGreaterThan: getDocumentsCompare('plants', 'price', isGreaterThan: 50)
+  /// - isLessThan: getDocumentsCompare('plants', 'price', isLessThan: 100)
+  /// - isGreaterThanOrEqualTo
+  /// - isLessThanOrEqualTo
+  Stream<QuerySnapshot> getDocumentsCompare(
+    String collection,
+    String field, {
+    dynamic isGreaterThan,
+    dynamic isLessThan,
+    dynamic isGreaterThanOrEqualTo,
+    dynamic isLessThanOrEqualTo,
+  }) {
+    try {
+      Query query = _db.collection(collection);
+
+      if (isGreaterThan != null) {
+        query = query.where(field, isGreaterThan: isGreaterThan);
+      }
+      if (isLessThan != null) {
+        query = query.where(field, isLessThan: isLessThan);
+      }
+      if (isGreaterThanOrEqualTo != null) {
+        query = query.where(field, isGreaterThanOrEqualTo: isGreaterThanOrEqualTo);
+      }
+      if (isLessThanOrEqualTo != null) {
+        query = query.where(field, isLessThanOrEqualTo: isLessThanOrEqualTo);
+      }
+
+      return query.snapshots();
+    } catch (e) {
+      print('✗ Error with comparison query: $e');
+      rethrow;
+    }
+  }
+
+  /// Query with array contains filter
+  /// Example: getDocumentsArrayContains('plants', 'tags', 'popular')
+  Stream<QuerySnapshot> getDocumentsArrayContains(
+    String collection,
+    String field,
+    dynamic value,
+  ) {
+    try {
+      return _db
+          .collection(collection)
+          .where(field, arrayContains: value)
+          .snapshots();
+    } catch (e) {
+      print('✗ Error with array contains query: $e');
+      rethrow;
+    }
+  }
+
+  /// Query with multiple filters (AND conditions)
+  /// Example: getDocumentsMultiFilter(
+  ///   'plants',
+  ///   filters: {
+  ///     'status': 'available',
+  ///     'inStock': true,
+  ///   }
+  /// )
+  Stream<QuerySnapshot> getDocumentsMultiFilter(
+    String collection, {
+    required Map<String, dynamic> filters,
+    String? orderByField,
+    bool descending = false,
+    int? limitCount,
+  }) {
+    try {
+      Query query = _db.collection(collection);
+
+      // Apply all filters
+      filters.forEach((field, value) {
+        query = query.where(field, isEqualTo: value);
+      });
+
+      // Apply ordering
+      if (orderByField != null) {
+        query = query.orderBy(orderByField, descending: descending);
+      }
+
+      // Apply limit
+      if (limitCount != null) {
+        query = query.limit(limitCount);
+      }
+
+      return query.snapshots();
+    } catch (e) {
+      print('✗ Error with multi-filter query: $e');
+      rethrow;
+    }
+  }
+
+  /// Query with sorting (ascending)
+  /// Example: getDocumentsSorted('plants', 'price')
+  Stream<QuerySnapshot> getDocumentsSorted(
+    String collection,
+    String field, {
+    bool descending = false,
+    int? limitCount,
+  }) {
+    try {
+      Query query = _db.collection(collection).orderBy(field, descending: descending);
+
+      if (limitCount != null) {
+        query = query.limit(limitCount);
+      }
+
+      return query.snapshots();
+    } catch (e) {
+      print('✗ Error with sorted query: $e');
+      rethrow;
+    }
+  }
+
+  /// Query with limit
+  /// Example: getDocumentsLimit('plants', 10)
+  Stream<QuerySnapshot> getDocumentsLimit(
+    String collection,
+    int limitCount,
+  ) {
+    try {
+      return _db
+          .collection(collection)
+          .limit(limitCount)
+          .snapshots();
+    } catch (e) {
+      print('✗ Error with limit query: $e');
+      rethrow;
+    }
+  }
+
+  /// Query with filter, sort, and limit
+  /// Comprehensive query combining where, orderBy, and limit
+  /// Example: 
+  /// getDocumentsComplex(
+  ///   'plants',
+  ///   whereField: 'inStock',
+  ///   whereValue: true,
+  ///   orderByField: 'price',
+  ///   descending: false,
+  ///   limitCount: 10
+  /// )
+  Stream<QuerySnapshot> getDocumentsComplex(
+    String collection, {
+    String? whereField,
+    dynamic whereValue,
+    String? orderByField,
+    bool descending = false,
+    int? limitCount,
+  }) {
+    try {
+      Query query = _db.collection(collection);
+
+      // Apply filter if provided
+      if (whereField != null && whereValue != null) {
+        query = query.where(whereField, isEqualTo: whereValue);
+      }
+
+      // Apply sorting if provided
+      if (orderByField != null) {
+        query = query.orderBy(orderByField, descending: descending);
+      }
+
+      // Apply limit if provided
+      if (limitCount != null) {
+        query = query.limit(limitCount);
+      }
+
+      return query.snapshots();
+    } catch (e) {
+      print('✗ Error with complex query: $e');
+      rethrow;
+    }
+  }
+
+  /// Query with pagination (for large datasets)
+  /// First call with null startAfter, then use last document from previous batch
+  /// Example:
+  /// final first = await getDocumentsPaginated('plants', pageSize: 10);
+  /// final next = await getDocumentsPaginated('plants', pageSize: 10, startAfter: first.last);
+  Future<List<DocumentSnapshot>> getDocumentsPaginated(
+    String collection, {
+    int pageSize = 10,
+    DocumentSnapshot? startAfter,
+    String? orderByField = 'createdAt',
+    bool descending = true,
+  }) async {
+    try {
+      Query query = _db.collection(collection);
+
+      // Apply sorting
+      if (orderByField != null) {
+        query = query.orderBy(orderByField, descending: descending);
+      }
+
+      // Apply pagination
+      if (startAfter != null) {
+        query = query.startAfterDocument(startAfter);
+      }
+
+      query = query.limit(pageSize);
+
+      final snapshot = await query.get();
+      return snapshot.docs;
+    } catch (e) {
+      print('✗ Error with pagination query: $e');
+      rethrow;
+    }
+  }
+
+  /// Get documents for a specific user with filters
+  /// Combines user ownership verification with filtering
+  Stream<QuerySnapshot> getUserDocumentsFiltered(
+    String collection, {
+    required Map<String, dynamic> filters,
+    String? orderByField,
+    bool descending = false,
+    int? limitCount,
+  }) {
+    try {
+      final uid = _getCurrentUserId();
+      Query query = _db.collection(collection).where('uid', isEqualTo: uid);
+
+      // Apply additional filters
+      filters.forEach((field, value) {
+        query = query.where(field, isEqualTo: value);
+      });
+
+      // Apply ordering
+      if (orderByField != null) {
+        query = query.orderBy(orderByField, descending: descending);
+      }
+
+      // Apply limit
+      if (limitCount != null) {
+        query = query.limit(limitCount);
+      }
+
+      return query.snapshots();
+    } catch (e) {
+      print('✗ Error with user filtered query: $e');
+      rethrow;
+    }
+  }
+
+  /// Get completed/incomplete tasks with sorting
+  Stream<QuerySnapshot> getTasksByStatus(
+    bool isCompleted, {
+    String sortBy = 'createdAt',
+    bool descending = true,
+    int? limitCount,
+  }) {
+    try {
+      final uid = _getCurrentUserId();
+      Query query = _db
+          .collection(_tasksCollection)
+          .where('uid', isEqualTo: uid)
+          .where('isCompleted', isEqualTo: isCompleted)
+          .orderBy(sortBy, descending: descending);
+
+      if (limitCount != null) {
+        query = query.limit(limitCount);
+      }
+
+      return query.snapshots();
+    } catch (e) {
+      print('✗ Error getting tasks by status: $e');
+      rethrow;
+    }
+  }
+
+  /// Search documents by a text field (simple substring search)
+  /// Note: For production, consider using Algolia or Meilisearch
+  /// This performs case-sensitive comparisons
+  Stream<QuerySnapshot> searchDocuments(
+    String collection,
+    String searchField,
+    String searchTerm,
+  ) {
+    try {
+      return _db
+          .collection(collection)
+          .where(searchField, isGreaterThanOrEqualTo: searchTerm)
+          .where(searchField, isLessThan: searchTerm + 'z')
+          .snapshots();
+    } catch (e) {
+      print('✗ Error searching documents: $e');
+      rethrow;
+    }
+  }
 }
