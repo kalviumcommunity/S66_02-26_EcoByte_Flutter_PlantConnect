@@ -1977,7 +1977,291 @@ Notes collection is included but optional because:
 
 ---
 
-## �📚 Responsive Design Implementation
+## 💾 Firestore Write Operations (CRUD) — Complete Guide
+
+### **What is CRUD?**
+
+CRUD stands for **Create, Read, Update, Delete** — the four fundamental operations for any database system:
+
+| Operation | Action | Firestore Method | Cost |
+|-----------|--------|-----------------|------|
+| **Create** | Add new document | `.add()` or `.set()` | 1 write |
+| **Read** | Fetch document(s) | `.get()` or `.snapshots()` | 1 read |
+| **Update** | Modify specific fields | `.update()` | 1 write |
+| **Delete** | Remove document | `.delete()` | 1 write |
+
+---
+
+### **1️⃣ CREATE — Adding Data to Firestore**
+
+#### **Method A: ADD (Auto-Generated ID)**
+
+```dart
+// Use .add() when you want Firestore to generate document ID
+Future<void> createTask() async {
+  try {
+    final docRef = await FirebaseFirestore.instance
+        .collection('tasks')
+        .add({
+          'title': 'Buy plants',
+          'description': 'Get monstera and pothos from nursery',
+          'isCompleted': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+    
+    print('Task created with ID: ${docRef.id}');
+  } catch (e) {
+    print('Error creating task: $e');
+  }
+}
+```
+
+**When to use .add():** Auto-generated IDs, multiple different documents
+
+#### **Method B: SET (Specific Document ID)**
+
+```dart
+// Use .set() when you want control over document ID
+Future<void> createUserProfile(String userId) async {
+  try {
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .set({
+          'email': 'john@example.com',
+          'displayName': 'John Doe',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+  } catch (e) {
+    print('Error creating profile: $e');
+  }
+}
+```
+
+**When to use .set():** Document ID is meaningful (user ID, plant ID)
+
+#### **Method C: SET with MERGE (Partial Update)**
+
+```dart
+// Use merge:true to avoid overwriting existing data
+await FirebaseFirestore.instance
+    .collection('users')
+    .doc(userId)
+    .set({
+      'displayName': 'Jane Doe',  // Only update this field
+    }, SetOptions(merge: true));  // merge: true preserves other fields!
+```
+
+---
+
+### **2️⃣ READ — Retrieving Data from Firestore**
+
+#### **One-Time Read (FutureBuilder)**
+
+```dart
+Future<Map<String, dynamic>?> getTask(String taskId) async {
+  final doc = await FirebaseFirestore.instance
+      .collection('tasks')
+      .doc(taskId)
+      .get();
+  
+  return doc.exists ? doc.data() : null;
+}
+```
+
+#### **Real-Time Stream (StreamBuilder)**
+
+```dart
+Stream<List<Map<String, dynamic>>> getTasksStream() {
+  return FirebaseFirestore.instance
+      .collection('tasks')
+      .where('isCompleted', isEqualTo: false)
+      .orderBy('createdAt', descending: true)
+      .snapshots()
+      .map((snapshot) => snapshot.docs
+          .map((doc) => doc.data())
+          .toList());
+}
+```
+
+**Difference:** `.get()` fetches once, `.snapshots()` provides real-time updates
+
+---
+
+### **3️⃣ UPDATE — Modifying Existing Data**
+
+#### **Update Specific Fields**
+
+```dart
+// Only update specified fields, preserve others
+Future<void> updateTask(String taskId) async {
+  await FirebaseFirestore.instance
+      .collection('tasks')
+      .doc(taskId)
+      .update({
+        'title': 'Updated title',
+        'isCompleted': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+}
+```
+
+**Why .update() over .set()?** `.update()` preserves other fields; `.set()` without merge overwrites everything
+
+#### **Increment Numeric Fields**
+
+```dart
+// Atomically increment a counter
+await FirebaseFirestore.instance
+    .collection('posts')
+    .doc(postId)
+    .update({
+      'viewCount': FieldValue.increment(1),
+      'likes': FieldValue.increment(5),
+    });
+```
+
+#### **Array Operations**
+
+```dart
+// Add item to array
+await ref.update({
+  'tags': FieldValue.arrayUnion(['flutter']),  // Add if not exists
+});
+
+// Remove item from array
+await ref.update({
+  'tags': FieldValue.arrayRemove(['flutter']),  // Remove if exists
+});
+```
+
+---
+
+### **4️⃣ DELETE — Removing Data**
+
+#### **Delete Single Document**
+
+```dart
+Future<void> deleteTask(String taskId) async {
+  await FirebaseFirestore.instance
+      .collection('tasks')
+      .doc(taskId)
+      .delete();
+}
+```
+
+#### **Delete Field from Document**
+
+```dart
+// Delete specific fields without deleting document
+await FirebaseFirestore.instance
+    .collection('users')
+    .doc(userId)
+    .update({
+      'bio': FieldValue.delete(),
+      'phoneNumber': FieldValue.delete(),
+    });
+```
+
+#### **Delete with Confirmation**
+
+```dart
+// Best practice: Confirm before deleting
+final confirmed = await showDialog<bool>(
+  context: context,
+  builder: (context) => AlertDialog(
+    title: Text('Delete Task?'),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context, false),
+        child: Text('Cancel'),
+      ),
+      TextButton(
+        onPressed: () => Navigator.pop(context, true),
+        style: TextButton.styleFrom(foregroundColor: Colors.red),
+        child: Text('Delete'),
+      ),
+    ],
+  ),
+);
+
+if (confirmed == true) {
+  await FirebaseFirestore.instance
+      .collection('tasks')
+      .doc(taskId)
+      .delete();
+}
+```
+
+---
+
+### **Best Practices for Write Operations**
+
+✅ **Always validate input** before writing to Firestore
+✅ **Use server timestamps** (`FieldValue.serverTimestamp()`) instead of local time
+✅ **Use atomic operations** (increment, arrayUnion) for concurrent updates
+✅ **Always wrap in try-catch** for proper error handling
+✅ **Provide user feedback** — show loading, success, and error messages
+✅ **Use .update()** for partial updates, not .set() without merge
+✅ **Confirm destructive actions** — ask before deleting
+✅ **Check if mounted** before setState() in async callbacks
+
+---
+
+### **Complete Example: Task Management (Write Operations Demo)**
+
+The `FirestoreDemoScreen` in `lib/screens/firestore_demo_screen.dart` demonstrates all CRUD operations:
+
+**Features:**
+- ✅ **Add Tasks** - CREATE with validation
+- ✅ **View Tasks** - READ with real-time updates
+- ✅ **Edit Tasks** - UPDATE with proper error handling
+- ✅ **Delete Tasks** - DELETE with confirmation
+
+**How to Test:**
+1. Open the app and navigate to the Firestore Demo screen
+2. Go to the "Write Data" tab (first tab)
+3. Enter a task title and description
+4. Tap "Add Task" to CREATE
+5. Tap the edit icon to UPDATE
+6. Tap the menu and select "Delete" to DELETE
+7. Verify changes in Firebase Console in real-time
+
+---
+
+### **Security Best Practices**
+
+Firestore Security Rules enforce permissions at the database level:
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /tasks/{taskId} {
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth.uid == resource.data.userId;
+      allow read: if request.auth.uid == resource.data.userId;
+    }
+  }
+}
+```
+
+**Key Principle:** Deny access by default, allow explicitly for specific users/conditions.
+
+---
+
+### **Common Write Errors & Solutions**
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `PERMISSION_DENIED` | Security rules don't allow operation | Update rules in Firebase Console |
+| `Invalid argument` | Wrong data type (String vs int) | Validate data types before writing |
+| `Document missing field` | Required field not included | Include all required fields |
+| `setState called after dispose` | Calling setState in async callback | Check `if (mounted)` before setState |
+
+---
+
+## 📚 Responsive Design Implementation
 
 PlantConnect implements a **fully responsive layout** that adapts seamlessly across all device sizes and orientations.
 
