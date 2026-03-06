@@ -2261,6 +2261,417 @@ service cloud.firestore {
 
 ---
 
+## 🔐 Writing and Updating Data to Firestore Securely
+
+### **Security Overview**
+
+Secure Firestore writes require a **multi-layer defense strategy**:
+
+1. **Input Validation** - Enforce constraints before database writes
+2. **Input Sanitization** - Clean and normalize user input
+3. **Rate Limiting** - Prevent DoS attacks and write spam
+4. **Error Handling** - Don't expose sensitive system information
+5. **Server Timestamps** - Prevent client-side time manipulation
+6. **Document ID Validation** - Prevent injection attacks
+
+### **Layer 1: Input Validation**
+
+Validate all user input before it reaches Firestore:
+
+```dart
+String? _validateTaskInput(String title, String description) {
+  // SECURITY: Check required fields
+  if (title.isEmpty) {
+    return 'Title is required';
+  }
+  if (description.isEmpty) {
+    return 'Description is required';
+  }
+
+  // SECURITY: Enforce length constraints (prevents DoS via large documents)
+  if (title.length > 100) {
+    return 'Title must be 100 characters or less (${title.length}/100)';
+  }
+  if (description.length > 500) {
+    return 'Description must be 500 characters or less (${description.length}/500)';
+  }
+
+  // SECURITY: Enforce minimum length (prevents spam/junk data)
+  if (title.length < 1) {
+    return 'Title must be at least 1 character';
+  }
+  if (description.length < 1) {
+    return 'Description must be at least 1 character';
+  }
+
+  // SECURITY: Check for whitespace-only input
+  if (title.trim().isEmpty) {
+    return 'Title cannot contain only spaces';
+  }
+  if (description.trim().isEmpty) {
+    return 'Description cannot contain only spaces';
+  }
+
+  // SECURITY: Detect injection attempts or malicious patterns
+  if (_containsSuspiciousPatterns(title) || _containsSuspiciousPatterns(description)) {
+    return 'Input contains invalid characters or patterns. Please use standard text only.';
+  }
+
+  return null; // Validation passed
+}
+
+// SECURITY: Detect suspicious patterns that might indicate injection attempts
+bool _containsSuspiciousPatterns(String text) {
+  final suspiciousPatterns = [
+    RegExp(r'(?i)script|iframe|onclick|onerror|eval|javascript'),
+    RegExp(r'[<>{}|\[\]\\^`]'), // Limited special characters
+  ];
+
+  for (final pattern in suspiciousPatterns) {
+    if (pattern.hasMatch(text)) {
+      return true;
+    }
+  }
+  return false;
+}
+```
+
+**Validation Checklist:**
+- ✅ Required fields are not empty
+- ✅ Field length within defined constraints (1-100 for title, 1-500 for description)
+- ✅ No whitespace-only input
+- ✅ No suspicious patterns (script tags, HTML, brackets, etc.)
+
+---
+
+### **Layer 2: Input Sanitization**
+
+Clean and normalize input data:
+
+```dart
+// SECURITY: Sanitize input by trimming whitespace
+Future<void> _handleSubmit() async {
+  final title = _titleController.text.trim(); // Remove leading/trailing spaces
+  final description = _descriptionController.text.trim();
+
+  // SECURITY: Validate after sanitization
+  final validationError = _validateTaskInput(title, description);
+  if (validationError != null) {
+    _showErrorSnackBar(validationError);
+    return;
+  }
+
+  // Proceed with write operation
+}
+```
+
+**Sanitization Steps:**
+- `.trim()` removes leading/trailing whitespace
+- Validation runs AFTER sanitization
+- Clean data is what goes to Firestore
+
+---
+
+### **Layer 3: Rate Limiting**
+
+Prevent write spam and DoS attacks:
+
+```dart
+// SECURITY: Rate limiting fields
+DateTime? _lastWriteTime;
+static const Duration _minTimeBetweenWrites = Duration(seconds: 1);
+
+// SECURITY: Rate limiting to prevent write spam and DoS attacks
+bool _checkRateLimit() {
+  if (_lastWriteTime == null) {
+    _lastWriteTime = DateTime.now();
+    return true;
+  }
+
+  final now = DateTime.now();
+  final timeSinceLastWrite = now.difference(_lastWriteTime!);
+
+  if (timeSinceLastWrite < _minTimeBetweenWrites) {
+    return false; // Too soon, operation blocked
+  }
+
+  _lastWriteTime = now;
+  return true;
+}
+
+// Usage in _handleSubmit():
+if (!_checkRateLimit()) {
+  _showErrorSnackBar('Wait a moment before performing another action');
+  return;
+}
+```
+
+**Rate Limiting Benefits:**
+- Prevents accidental rapid writes
+- Protects against DoS attacks
+- Conserves Firestore write quota
+- Improves user experience (prevents duplicate submissions)
+
+**Suggested Rate Limits:**
+- Desktop/Web: 1 write per second
+- Mobile (throttled): 2-3 seconds per write
+- Critical operations (delete): 5 seconds minimum
+
+---
+
+### **Layer 4: Secure Error Handling**
+
+Map Firebase errors to user-friendly messages without exposing internals:
+
+```dart
+// SECURITY: Handle Firebase errors securely
+void _handleFirebaseError(FirebaseException e) {
+  String message;
+
+  switch (e.code) {
+    case 'permission-denied':
+      message = 'You do not have permission to perform this action';
+      break;
+    case 'not-found':
+      message = 'The document you are trying to update does not exist';
+      break;
+    case 'aborted':
+      message = 'The operation was aborted. Please try again';
+      break;
+    case 'unauthenticated':
+      message = 'You must be logged in to perform this action';
+      break;
+    case 'failed-precondition':
+      message = 'Operation failed. Please check your input and try again';
+      break;
+    default:
+      // SECURITY: Don't expose internal error codes to users
+      message = 'An error occurred while saving your task. Please try again';
+      print('Firebase error code: ${e.code}'); // Log for debugging only
+  }
+
+  _showErrorSnackBar(message);
+}
+```
+
+**Error Handling Best Practices:**
+- Map technical errors to user-friendly messages
+- Log actual errors for debugging (console only)
+- Never expose error codes or stack traces to users
+- Provide actionable guidance ("Check your internet connection", "Verify permissions")
+
+**Common Firebase Error Codes:**
+| Code | Meaning | User Message |
+|------|---------|--------------|
+| `permission-denied` | No write permission | "You don't have permission to perform this action" |
+| `not-found` | Document doesn't exist | "Document not found" |
+| `unauthenticated` | User not logged in | "Please log in to continue" |
+| `network-error` | Offline/no connection | "Check your internet connection" |
+| `aborted` | Operation cancelled | "Operation was cancelled. Please try again" |
+
+---
+
+### **Layer 5: Server Timestamps**
+
+Always use server-side timestamps to prevent client manipulation:
+
+```dart
+// ✅ CORRECT: Use server timestamp
+await FirebaseFirestore.instance
+    .collection('tasks')
+    .add({
+      'title': title,
+      'description': description,
+      'createdAt': FieldValue.serverTimestamp(), // Server time, not client time
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+// ❌ WRONG: Using client timestamp
+await FirebaseFirestore.instance
+    .collection('tasks')
+    .add({
+      'title': title,
+      'description': description,
+      'createdAt': DateTime.now(), // Client could manipulate this!
+    });
+```
+
+**Why Server Timestamps Matter:**
+- Client device clock might be incorrect or manipulated
+- Server timestamps are trustworthy and consistent across devices
+- Enables accurate sorting and filtering (newest first, oldest first)
+- Auditable: You know exactly when decisions were made
+
+---
+
+### **Layer 6: Document ID Validation**
+
+Prevent injection attacks via invalid document IDs:
+
+```dart
+// SECURITY: Validate document ID format (prevent injection)
+bool _isValidDocumentId(String docId) {
+  // Firestore document IDs can only contain alphanumeric, hyphens, underscores
+  return docId.isNotEmpty && 
+         docId.length <= 1024 && // Firestore document ID limit
+         !docId.contains(RegExp(r'[^a-zA-Z0-9_-]'));
+}
+
+// Usage in delete operation:
+Future<void> _deleteTask(String docId) async {
+  // SECURITY: Validate document ID format
+  if (!_isValidDocumentId(docId)) {
+    _showErrorSnackBar('Invalid document ID');
+    return;
+  }
+
+  await FirebaseFirestore.instance
+      .collection('tasks')
+      .doc(docId)
+      .delete();
+}
+```
+
+**Valid Document ID Format:**
+- Alphanumeric: a-z, A-Z, 0-9
+- Hyphens and underscores: `-` and `_`
+- Maximum length: 1024 characters
+
+---
+
+### **Complete Secure Write Implementation**
+
+Here's the full secure write flow combining all layers:
+
+```dart
+Future<void> _handleSubmit() async {
+  // STEP 1: Input Sanitization
+  final title = _titleController.text.trim();
+  final description = _descriptionController.text.trim();
+
+  // STEP 2: Input Validation
+  final validationError = _validateTaskInput(title, description);
+  if (validationError != null) {
+    _showErrorSnackBar(validationError);
+    return;
+  }
+
+  // STEP 3: Rate Limiting
+  if (!_checkRateLimit()) {
+    _showErrorSnackBar('Wait a moment before performing another action');
+    return;
+  }
+
+  try {
+    setState(() => _isLoading = true);
+
+    // STEP 4: Secure Write with Server Timestamps
+    if (_editingId == null) {
+      // CREATE operation
+      await _firestoreService.addDocument('tasks', {
+        'title': title,
+        'description': description,
+        'isCompleted': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      _showSuccessSnackBar('✓ Task added successfully!');
+    } else {
+      // UPDATE operation
+      await _firestoreService.updateDocument('tasks', _editingId!, {
+        'title': title,
+        'description': description,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      _showSuccessSnackBar('✓ Task updated successfully!');
+    }
+
+    _clearForm();
+  } on FirebaseException catch (e) {
+    // STEP 5: Secure Error Handling
+    _handleFirebaseError(e);
+  } catch (e) {
+    // Generic error handling
+    print('Write error: $e');
+    _showErrorSnackBar('Failed to save. Please try again.');
+  } finally {
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
+}
+```
+
+---
+
+### **Security Checklist for Firestore Writes**
+
+Before pushing to production, verify:
+
+- ✅ **Input Validation**: All fields checked for required, length, format
+- ✅ **Input Sanitization**: `.trim()` removes whitespace, special chars filtered
+- ✅ **Rate Limiting**: Minimum time between writes enforced (1 second recommended)
+- ✅ **Error Handling**: Firebase errors mapped to safe user messages
+- ✅ **Server Timestamps**: All timestamps use `FieldValue.serverTimestamp()`
+- ✅ **Document ID Validation**: IDs checked for valid format
+- ✅ **Confirmation Dialogs**: Destructive operations (delete) require confirmation
+- ✅ **Mounted Checks**: `if (mounted)` before calling `setState()` in async
+- ✅ **Try-Catch Blocks**: All async operations wrapped in error handling
+- ✅ **No Sensitive Data in Logs**: Errors logged without exposing internal details
+
+---
+
+### **Advanced: Firestore Security Rules**
+
+Client-side security is just the first line of defense. Always combine with server-side rules:
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /tasks/{taskId} {
+      // Only authenticated users can create
+      allow create: if request.auth != null;
+      
+      // Only the owner can read/update/delete
+      allow read, update, delete: if request.auth.uid == resource.data.userId;
+      
+      // Validate data structure on write
+      allow write: if request.resource.data.keys().hasAll(['title', 'description'])
+                   && request.resource.data.title is string
+                   && request.resource.data.description is string
+                   && request.resource.data.title.size() <= 100
+                   && request.resource.data.description.size() <= 500;
+    }
+  }
+}
+```
+
+**Server-Side Validation Benefits:**
+- Cannot be bypassed by malicious clients
+- Enforces data structure consistency
+- Protects against entire classes of attacks
+- Acts as final gatekeeper before data storage
+
+---
+
+### **Testing Security Implementation**
+
+Test these scenarios to verify security:
+
+1. **Valid Input**: Submit "Buy Plants" title, "Get monstera..." description → ✅ Should create
+2. **Empty Title**: Leave title empty → ✅ Should show "Title is required"
+3. **Long Title**: Enter 150-character string → ✅ Should show length error
+4. **Whitespace-Only**: Enter "     " spaces → ✅ Should show "cannot contain only spaces"
+5. **Suspicious Pattern**: Enter "<script>alert('xss')</script>" → ✅ Should reject
+6. **Rate Limiting**: Submit twice within 1 second → ✅ Second should fail with "Wait a moment"
+7. **Delete Confirmation**: Click delete without confirming → ✅ Should not delete
+8. **Offline Error**: Simulate offline mode → ✅ Should show "Check your internet"
+9. **Permission Error**: Remove user permissions in Firebase → ✅ Should show permission message
+10. **Invalid ID**: Try to delete with malformed ID → ✅ Should reject
+
+---
+
 ## 📚 Responsive Design Implementation
 
 PlantConnect implements a **fully responsive layout** that adapts seamlessly across all device sizes and orientations.
