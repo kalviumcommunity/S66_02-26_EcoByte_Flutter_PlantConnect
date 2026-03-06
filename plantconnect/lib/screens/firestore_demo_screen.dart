@@ -12,29 +12,36 @@ class FirestoreDemoScreen extends StatefulWidget {
 class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   final TextEditingController _documentIdController = TextEditingController();
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  String? _editingDocId;
+  bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Firestore Read Operations Demo'),
+          title: const Text('Firestore CRUD Demo'),
           bottom: const TabBar(
             tabs: [
+              Tab(text: 'Write Data'),
               Tab(text: 'Stream Data'),
-              Tab(text: 'Single Document'),
+              Tab(text: 'Single Doc'),
               Tab(text: 'Query Data'),
             ],
           ),
         ),
         body: TabBarView(
           children: [
-            // Tab 1: Real-Time Stream (StreamBuilder)
+            // Tab 1: Write Operations (Create, Update, Delete)
+            _buildWriteOperationsTab(),
+            // Tab 2: Real-Time Stream (StreamBuilder)
             _buildStreamDataTab(),
-            // Tab 2: Single Document (FutureBuilder)
+            // Tab 3: Single Document (FutureBuilder)
             _buildSingleDocumentTab(),
-            // Tab 3: Query with Filters
+            // Tab 4: Query with Filters
             _buildQueryDataTab(),
           ],
         ),
@@ -42,8 +49,368 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
     );
   }
 
+  // ================================================
+  // TAB 1: Write Operations (Create, Update, Delete)
+  // ================================================
+  Widget _buildWriteOperationsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          // Info Card
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Write Operations Demo',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '• CREATE: Add new task\n• UPDATE: Edit existing task\n• DELETE: Remove task',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Form Section
+          _buildTaskForm(),
+          const SizedBox(height: 24),
+
+          // Task List Section
+          const Text(
+            'Current Tasks',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          _buildTaskList(),
+        ],
+      ),
+    );
+  }
+
+  // Task Form Widget
+  Widget _buildTaskForm() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _editingDocId == null ? 'Add New Task' : 'Edit Task',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+
+            // Title Field
+            TextField(
+              controller: _titleController,
+              decoration: InputDecoration(
+                labelText: 'Task Title *',
+                hintText: 'Enter task title',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                prefixIcon: const Icon(Icons.title),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Description Field
+            TextField(
+              controller: _descriptionController,
+              decoration: InputDecoration(
+                labelText: 'Description *',
+                hintText: 'Enter task description',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                prefixIcon: const Icon(Icons.description),
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 16),
+
+            // Action Buttons
+            Row(
+              children: [
+                // Submit Button
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _handleSubmit,
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(_editingDocId == null ? Icons.add : Icons.check),
+                    label: Text(_editingDocId == null ? 'Add Task' : 'Update Task'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Cancel Button (Show only when editing)
+                if (_editingDocId != null)
+                  ElevatedButton.icon(
+                    onPressed: _cancelEdit,
+                    icon: const Icon(Icons.close),
+                    label: const Text('Cancel'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Task List Widget
+  Widget _buildTaskList() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestoreService.getCollectionStream('tasks'),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                const SizedBox(height: 16),
+                Text('Error: ${snapshot.error}'),
+              ],
+            ),
+          );
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.inbox_outlined, size: 48, color: Colors.grey),
+                const SizedBox(height: 16),
+                const Text('No tasks yet. Create your first task!'),
+              ],
+            ),
+          );
+        }
+
+        final tasks = snapshot.data!.docs;
+
+        return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: tasks.length,
+          itemBuilder: (context, index) {
+            final task = tasks[index];
+            final data = task.data() as Map<String, dynamic>;
+            final createdAt = data['createdAt'] as Timestamp?;
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                leading: const Icon(Icons.task_alt, color: Colors.green),
+                title: Text(data['title'] ?? 'Unknown'),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 4),
+                    Text(data['description'] ?? 'No description'),
+                    if (createdAt != null)
+                      Text(
+                        'Created: ${_formatDate(createdAt.toDate())}',
+                        style: const TextStyle(fontSize: 10, color: Colors.grey),
+                      ),
+                  ],
+                ),
+                trailing: PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _startEdit(task.id, data);
+                    } else if (value == 'delete') {
+                      _confirmDelete(task.id);
+                    }
+                  },
+                  itemBuilder: (BuildContext context) => [
+                    const PopupMenuItem<String>(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit, color: Colors.blue),
+                          SizedBox(width: 8),
+                          Text('Edit'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Delete'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Helper Methods for Write Operations
+  Future<void> _handleSubmit() async {
+    final title = _titleController.text.trim();
+    final description = _descriptionController.text.trim();
+
+    // Validation
+    if (title.isEmpty || description.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill all required fields'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      if (_editingDocId == null) {
+        // CREATE Operation
+        await _firestoreService.addDocument('tasks', {
+          'title': title,
+          'description': description,
+          'isCompleted': false,
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✓ Task created successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        // UPDATE Operation
+        await _firestoreService.updateDocument('tasks', _editingDocId!, {
+          'title': title,
+          'description': description,
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✓ Task updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+      _clearForm();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✗ Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _startEdit(String docId, Map<String, dynamic> data) {
+    setState(() {
+      _editingDocId = docId;
+      _titleController.text = data['title'] ?? '';
+      _descriptionController.text = data['description'] ?? '';
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Now editing task...')),
+    );
+  }
+
+  void _cancelEdit() {
+    _clearForm();
+  }
+
+  void _clearForm() {
+    setState(() {
+      _titleController.clear();
+      _descriptionController.clear();
+      _editingDocId = null;
+    });
+  }
+
+  Future<void> _confirmDelete(String docId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Task'),
+        content: const Text('Are you sure you want to delete this task?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _deleteTask(docId);
+    }
+  }
+
+  Future<void> _deleteTask(String docId) async {
+    try {
+      await _firestoreService.deleteDocument('tasks', docId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✓ Task deleted successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✗ Error deleting task: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute}';
+  }
+
   // ============================================
-  // TAB 1: Real-Time Stream using StreamBuilder
+  // TAB 2: Real-Time Stream using StreamBuilder
   // ============================================
   Widget _buildStreamDataTab() {
     return Column(
@@ -168,7 +535,7 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
   }
 
   // ========================================
-  // TAB 2: Single Document using FutureBuilder
+  // TAB 3: Single Document using FutureBuilder
   // ========================================
   Widget _buildSingleDocumentTab() {
     return Column(
@@ -305,7 +672,7 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
   }
 
   // =================================
-  // TAB 3: Query with Filters
+  // TAB 4: Query with Filters
   // =================================
   Widget _buildQueryDataTab() {
     return Column(
@@ -427,9 +794,9 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
         const SnackBar(content: Text('Sample data added successfully!')),
       );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error adding data: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error adding data: $e')),
+      );
     }
   }
 
@@ -440,15 +807,17 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
         const SnackBar(content: Text('Item deleted successfully!')),
       );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error deleting item: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting item: $e')),
+      );
     }
   }
 
   @override
   void dispose() {
     _documentIdController.dispose();
+    _titleController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 }
