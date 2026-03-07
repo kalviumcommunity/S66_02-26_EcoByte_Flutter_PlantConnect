@@ -217,6 +217,13 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.map),
+            tooltip: 'View Map',
+            onPressed: () {
+              Navigator.of(context).pushNamed('/map');
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.image),
             tooltip: 'Assets demo',
             onPressed: () {
