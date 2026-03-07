@@ -2231,4 +2231,245 @@ docs: added comprehensive Firestore read operations guide to README
 [Sprint-2] Cloud Firestore Read Operations – Display Live Data from Firestore
 ```
 
+---
+
+## 🔒 Firebase Security Implementation Guide
+
+### Why Securing Firestore Matters
+
+- **Protects user data** from unauthorized access
+- **Ensures only authenticated users** can write/read the database
+- **Prevents malicious usage**: spam writes, data deletion, tampering
+- **Enforces role-based permissions** (user vs. admin)
+- **Required before deploying** to real users
+
+### Security Architecture
+
+Your app is protected by three layers:
+
+1. **Authentication** (via `AuthService`)
+   - User must log in with email/password
+   - Firebase Auth handles secure credential storage
+
+2. **Firestore Rules** (server-side enforcement)
+   - Only authenticated users can access data
+   - Users can only access their own documents
+   - Admin operations restricted to admins only
+
+3. **Service Layer Validation** (via `FirestoreService`)
+   - Client-side UID verification before writes
+   - Input validation for all operations
+   - Automatic server timestamps prevent tampering
+
+### Firestore Security Rules
+
+**Location:** `firestore.rules` (at project root)
+
+**Key Security Patterns:**
+
+#### Users Collection (Most Restrictive)
+```javascript
+match /users/{uid} {
+  // ✅ Read only own profile
+  allow read: if request.auth.uid == uid;
+  
+  // ✅ Write only own profile
+  allow write: if request.auth.uid == uid;
+}
+```
+
+#### Tasks Collection (User-Specific)
+```javascript
+match /tasks/{taskId} {
+  // ✅ Read: Own tasks or public tasks
+  allow read: if request.auth.uid == resource.data.uid || 
+              resource.data.isPublic == true;
+  
+  // ✅ Create: With proper uid verification
+  allow create: if request.auth.uid == request.resource.data.uid &&
+                request.resource.data.keys().hasAll(['title', 'description']);
+  
+  // ✅ Update: Only own tasks, can't change owner
+  allow update: if request.auth.uid == resource.data.uid &&
+                request.resource.data.uid == resource.data.uid;
+  
+  // ✅ Delete: Only own tasks
+  allow delete: if request.auth.uid == resource.data.uid;
+}
+```
+
+#### Plants Collection (With Public Sharing)
+```javascript
+match /plants/{plantId} {
+  // ✅ Read: Own plants or public plants
+  allow read: if request.auth.uid == resource.data.uid ||
+              resource.data.visibility == 'public';
+  
+  // ✅ Write: Only by owner
+  allow write: if request.auth.uid == resource.data.uid;
+}
+```
+
+### Secure Implementation Patterns
+
+#### Pattern 1: Create User Profile After Sign Up
+```dart
+final authService = AuthService();
+final firestoreService = FirestoreService();
+
+// Sign up
+await authService.signUp('user@example.com', 'password123');
+
+// Create Firestore profile
+await firestoreService.createUserProfile({
+  'displayName': 'John Doe',
+  'bio': 'Plant lover',
+});
+```
+
+#### Pattern 2: Read Only User's Own Data
+```dart
+// ✅ CORRECT: Only shows current user's data
+StreamBuilder<QuerySnapshot>(
+  stream: FirestoreService().getUserDocumentsStream('plants'),
+  builder: (context, snapshot) {
+    if (!snapshot.hasData) return CircularProgressIndicator();
+    
+    final plants = snapshot.data!.docs;
+    return ListView.builder(
+      itemCount: plants.length,
+      itemBuilder: (context, index) {
+        final plant = plants[index].data() as Map<String, dynamic>;
+        return ListTile(title: Text(plant['name']));
+      },
+    );
+  },
+)
+```
+
+#### Pattern 3: Secure Write Operations
+```dart
+// ✅ CORRECT: Automatic ownership verification
+await FirestoreService().addSecureDocument('plants', {
+  'name': 'Monstera',
+  'type': 'tropical',
+  // uid automatically set to current user
+});
+
+// ✅ CORRECT: Update only own documents
+await FirestoreService().updateSecureDocument('plants', plantId, {
+  'healthScore': 80,
+});
+
+// ✅ CORRECT: Delete only own documents
+await FirestoreService().deleteSecureDocument('plants', plantId);
+```
+
+#### Pattern 4: Handle Security Errors
+```dart
+try {
+  await FirestoreService().updateSecureDocument('plants', othersPlantId, {'name': 'Hacked'});
+} on FirebaseException catch (e) {
+  if (e.code == 'permission-denied') {
+    print('❌ You cannot modify this plant'); // Expected
+  }
+}
+```
+
+### Testing Security Rules
+
+In Firebase Console → Firestore → Rules Playground:
+
+**Test 1: User Reading Own Profile**
+```
+Auth UID: user123
+Path: /databases/(default)/documents/users/user123
+Operation: read
+Expected: ✅ ALLOW
+```
+
+**Test 2: User Reading Another's Profile**
+```
+Auth UID: user123
+Path: /databases/(default)/documents/users/user456
+Operation: read
+Expected: ❌ DENY
+```
+
+**Test 3: Unauthenticated Access**
+```
+Auth: null
+Path: /databases/(default)/documents/users/user123
+Operation: read
+Expected: ❌ DENY
+```
+
+**Test 4: Creating Document with Wrong UID**
+```
+Auth UID: user123
+Creating: {uid: "user456", title: "..."}
+Expected: ❌ DENY (uid must match auth.uid)
+```
+
+### Deployment Checklist Before Production
+
+- [ ] **Firebase Console**
+  - [ ] Email/Password authentication enabled
+  - [ ] Firestore database created
+  - [ ] Rules deployed from `firestore.rules`
+  - [ ] Database switched from Test Mode to **Production Mode**
+
+- [ ] **Code Review**
+  - [ ] No hardcoded UIDs in code
+  - [ ] All Firestore writes use `FirestoreService` methods
+  - [ ] No direct `FirebaseFirestore.instance` calls for user data
+  - [ ] Server timestamps used: `FieldValue.serverTimestamp()`
+  - [ ] Input validation implemented
+
+- [ ] **Security Testing**
+  - [ ] Tested unauthenticated access ✓ FAILS
+  - [ ] Tested cross-user data access ✓ FAILS
+  - [ ] Tested ownership verification ✓ WORKS
+  - [ ] Tested permission errors handled gracefully
+
+- [ ] **Monitoring Setup**
+  - [ ] Firebase Crashlytics configured
+  - [ ] Monitor PERMISSION_DENIED errors
+  - [ ] Set alerts for unusual access patterns
+
+### Common Issues & Fixes
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| `PERMISSION_DENIED` | Rules block access | Check authentication + rule syntax |
+| Writes fail from unauthenticated users | No login performed | Ensure sign-in before DB calls |
+| Can see other users' data locally | Test mode rules active | Deploy production rules + switch to Production mode |
+| Google sign-in fails on release | Missing SHA keys | Add release SHA to Firebase Console |
+| Document ownership not verified | Not using FirestoreService | Use `updateSecureDocument()` instead of direct update |
+
+### Security Best Practices Already Implemented
+
+✅ **Server Timestamps** - Prevents client time manipulation
+✅ **UID Embedding** - Every document includes uid field for rule verification
+✅ **Ownership Verification** - `_verifyDocumentOwnership()` method
+✅ **Field Validation** - `_validateUserData()` prevents malformed data
+✅ **Atomic Batch Operations** - `executeBatch()` ensures consistency
+✅ **Immutable Security Fields** - Can't update uid, createdAt, email
+✅ **Error Security** - Meaningful exceptions without exposing internals
+
+### Summary
+
+PlantConnect provides production-ready Firebase security:
+1. **Authentication** - Secure sign up/login via Firebase Auth
+2. **Authorization** - Row-level access control via Firestore Rules
+3. **Data Integrity** - Server timestamps and atomic operations
+4. **User Privacy** - Users isolated to their own documents
+5. **Admin Control** - Optional role-based access
+
+**Next Steps:**
+1. Deploy `firestore.rules` to Firebase
+2. Test rules in Rules Playground
+3. Switch Firestore from Test Mode to Production Mode
+4. Monitor security metrics in Firebase Console
+
 ````

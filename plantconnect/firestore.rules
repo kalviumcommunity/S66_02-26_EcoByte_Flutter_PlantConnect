@@ -1,0 +1,157 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ====================================================================
+    // UTILITY FUNCTIONS FOR COMMON SECURITY CHECKS
+    // ====================================================================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if request is made by the document owner
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+    
+    // Check if user is admin (optional, for future use)
+    function isAdmin() {
+      return get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // ====================================================================
+    // USERS COLLECTION - Secure user profiles
+    // Security: Each user can only read and write their own profile
+    // ====================================================================
+    match /users/{uid} {
+      // ✅ Read: Authenticated user can only read their own profile
+      allow read: if isAuthenticated() && isOwner(uid);
+      
+      // ✅ Write: Authenticated user can only write their own profile
+      allow write: if isAuthenticated() && isOwner(uid);
+      
+      // Sub-collections under users (if needed in future)
+      match /plants/{document=**} {
+        allow read, write: if isAuthenticated() && isOwner(uid);
+      }
+      
+      match /settings/{document=**} {
+        allow read, write: if isAuthenticated() && isOwner(uid);
+      }
+    }
+    
+    // ====================================================================
+    // TASKS COLLECTION - Secure task ownership
+    // Security: Each user can only access their own tasks
+    // ====================================================================
+    match /tasks/{taskId} {
+      // Only read if authenticated AND (user is owner OR document is public)
+      allow read: if isAuthenticated() && (
+        resource.data.uid == request.auth.uid || 
+        resource.data.isPublic == true
+      );
+      
+      // Only write if authenticated AND user is owner
+      allow create: if isAuthenticated() && 
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.keys().hasAll(['title', 'description', 'uid']);
+      
+      allow update: if isAuthenticated() && 
+        resource.data.uid == request.auth.uid &&
+        request.resource.data.uid == resource.data.uid; // Can't change owner
+      
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+    
+    // ====================================================================
+    // ITEMS COLLECTION - Secure item management
+    // Security: Similar to tasks - user-specific or public items
+    // ====================================================================
+    match /items/{itemId} {
+      allow read: if isAuthenticated() && (
+        resource.data.uid == request.auth.uid || 
+        resource.data.isPublic == true
+      );
+      
+      allow create: if isAuthenticated() && 
+        request.resource.data.uid == request.auth.uid;
+      
+      allow update: if isAuthenticated() && 
+        resource.data.uid == request.auth.uid;
+      
+      allow delete: if isAuthenticated() && 
+        resource.data.uid == request.auth.uid;
+    }
+    
+    // ====================================================================
+    // PLANTS COLLECTION - Secure plant data
+    // Security: User can manage their plants, public plants are readable
+    // ====================================================================
+    match /plants/{plantId} {
+      allow read: if isAuthenticated() && (
+        resource.data.uid == request.auth.uid ||
+        resource.data.visibility == 'public'
+      );
+      
+      allow create: if isAuthenticated() && 
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.keys().hasAll(['name', 'type', 'uid', 'createdAt']);
+      
+      allow update: if isAuthenticated() && 
+        resource.data.uid == request.auth.uid &&
+        request.resource.data.uid == resource.data.uid; // Prevent ownership hijacking
+      
+      allow delete: if isAuthenticated() && 
+        resource.data.uid == request.auth.uid;
+    }
+    
+    // ====================================================================
+    // PUBLIC COLLECTIONS - Optional, for shared/community data
+    // ====================================================================
+    match /publicPlants/{document=**} {
+      // Anyone can read public plants
+      allow read: if true;
+      
+      // Only admins or data can create/update
+      allow create, update: if isAuthenticated() && 
+        (isAdmin() || request.auth.uid == 'system');
+      
+      allow delete: if isAdmin();
+    }
+    
+    match /plantGuides/{document=**} {
+      // Anyone can read guides
+      allow read: if true;
+      
+      // Only admins can write
+      allow write: if isAdmin();
+    }
+    
+    // ====================================================================
+    // NOTIFICATIONS COLLECTION - User-specific notifications
+    // ====================================================================
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && 
+        resource.data.recipientUid == request.auth.uid;
+      
+      allow create: if isAuthenticated() && 
+        request.resource.data.recipientUid == request.auth.uid;
+      
+      allow update: if isAuthenticated() && 
+        resource.data.recipientUid == request.auth.uid;
+      
+      allow delete: if isAuthenticated() && 
+        resource.data.recipientUid == request.auth.uid;
+    }
+    
+    // ====================================================================
+    // CATCH-ALL - Deny everything else
+    // ====================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
