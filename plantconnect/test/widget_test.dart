@@ -10,6 +10,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:plantconnect/main.dart';
 import 'package:plantconnect/screens/asset_demo_screen.dart';
+import 'package:plantconnect/screens/animations_demo.dart';
+import 'package:plantconnect/screens/rotate_logo_demo.dart';
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {

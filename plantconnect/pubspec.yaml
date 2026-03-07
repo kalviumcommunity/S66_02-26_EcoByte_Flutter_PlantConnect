@@ -41,6 +41,7 @@ dependencies:
   cloud_functions: ^5.0.0
   firebase_messaging: ^15.0.0
   image_picker: ^1.0.0
+  google_maps_flutter: ^2.15.0
 
 dev_dependencies:
   flutter_test:

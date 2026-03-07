@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'notification_service.dart';
+import '../services/notification_service.dart';
 
 /// A widget that listens to Firebase notifications and displays them
 /// 
