@@ -217,6 +217,13 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.list_alt),
+            tooltip: 'My Items (CRUD)',
+            onPressed: () {
+              Navigator.of(context).pushNamed('/crud');
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.map),
             tooltip: 'View Map',
             onPressed: () {
