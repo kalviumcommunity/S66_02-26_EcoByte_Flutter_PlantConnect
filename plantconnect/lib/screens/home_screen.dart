@@ -308,7 +308,6 @@ class _HomeScreenState extends State<HomeScreen> {
             child: StreamBuilder<QuerySnapshot>(
               stream: _firestoreService.getUserDocumentsStream(
                 'notes',
-                user?.uid ?? '',
               ),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
