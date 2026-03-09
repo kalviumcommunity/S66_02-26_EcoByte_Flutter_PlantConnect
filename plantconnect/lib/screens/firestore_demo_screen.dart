@@ -683,7 +683,7 @@ class _FirestoreDemoScreenState extends State<FirestoreDemoScreen> {
                       vertical: 4,
                     ),
                     child: ListTile(
-                      leading: const Icon(Icons.leaf, color: Colors.green),
+                      leading: const Icon(Icons.eco, color: Colors.green),
                       title: Text(data['name'] ?? 'Unknown'),
                       subtitle: Text(data['description'] ?? 'No description'),
                       trailing: IconButton(
