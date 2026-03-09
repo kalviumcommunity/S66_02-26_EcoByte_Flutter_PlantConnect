@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'providers/counter_provider.dart';
 import 'providers/plant_favorites_provider.dart';
+import 'providers/theme_provider.dart';
+import 'themes/app_themes.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/splash_screen.dart';
@@ -24,6 +26,7 @@ import 'screens/crud_screen.dart';
 import 'screens/provider_demo_screen.dart';
 import 'screens/form_validation_screen.dart';
 import 'screens/bottom_nav_demo_screen.dart';
+import 'screens/theme_demo_screen.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'firebase_options.dart';
@@ -36,9 +39,14 @@ void main() async {
   // Initialize notifications
   await NotificationService().initialize();
   
+  // Load saved theme before runApp so the correct theme is applied from the start
+  final themeProvider = ThemeProvider();
+  await themeProvider.loadSavedTheme();
+
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider(create: (_) => CounterProvider()),
         ChangeNotifierProvider(create: (_) => FavoritePlantsProvider()),
       ],
@@ -52,12 +60,14 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // context.watch rebuilds MaterialApp when ThemeProvider notifies
+    final themeMode = context.watch<ThemeProvider>().mode;
+
     return MaterialApp(
       title: 'PlantConnect',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-        useMaterial3: true,
-      ),
+      theme: appLightTheme,
+      darkTheme: appDarkTheme,
+      themeMode: themeMode,
       home: const AuthWrapper(),
       routes: {
         '/stateless': (_) => const StatelessStatefulDemo(),
@@ -77,6 +87,7 @@ class MyApp extends StatelessWidget {
         '/provider_demo': (_) => const ProviderDemoScreen(),
         '/form_validation': (_) => const FormValidationScreen(),
         '/bottom_nav': (_) => const BottomNavDemoScreen(),
+        '/theme_demo': (_) => const ThemeDemoScreen(),
       },
       debugShowCheckedModeBanner: false,
     );

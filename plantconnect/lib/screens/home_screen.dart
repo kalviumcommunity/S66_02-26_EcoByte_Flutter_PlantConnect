@@ -217,6 +217,13 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.dark_mode_outlined),
+            tooltip: 'Dark Mode & Themes',
+            onPressed: () {
+              Navigator.of(context).pushNamed('/theme_demo');
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.menu_outlined),
             tooltip: 'BottomNavigationBar Demo',
             onPressed: () {
