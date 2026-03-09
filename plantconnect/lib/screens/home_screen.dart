@@ -217,6 +217,13 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.cloud_sync_outlined),
+            tooltip: 'Errors, Loaders & Empty States',
+            onPressed: () {
+              Navigator.of(context).pushNamed('/async_states');
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.dark_mode_outlined),
             tooltip: 'Dark Mode & Themes',
             onPressed: () {

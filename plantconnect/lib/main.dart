@@ -27,6 +27,7 @@ import 'screens/provider_demo_screen.dart';
 import 'screens/form_validation_screen.dart';
 import 'screens/bottom_nav_demo_screen.dart';
 import 'screens/theme_demo_screen.dart';
+import 'screens/async_states_demo_screen.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'firebase_options.dart';
@@ -88,6 +89,7 @@ class MyApp extends StatelessWidget {
         '/form_validation': (_) => const FormValidationScreen(),
         '/bottom_nav': (_) => const BottomNavDemoScreen(),
         '/theme_demo': (_) => const ThemeDemoScreen(),
+        '/async_states': (_) => const AsyncStatesDemoScreen(),
       },
       debugShowCheckedModeBanner: false,
     );
