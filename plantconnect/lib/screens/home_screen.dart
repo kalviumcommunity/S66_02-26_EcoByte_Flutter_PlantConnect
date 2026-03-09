@@ -217,6 +217,13 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.fact_check_outlined),
+            tooltip: 'Form Validation',
+            onPressed: () {
+              Navigator.of(context).pushNamed('/form_validation');
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.hub_outlined),
             tooltip: 'State Management (Provider)',
             onPressed: () {
