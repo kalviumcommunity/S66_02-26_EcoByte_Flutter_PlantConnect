@@ -23,6 +23,7 @@ import 'screens/map_screen.dart';
 import 'screens/crud_screen.dart';
 import 'screens/provider_demo_screen.dart';
 import 'screens/form_validation_screen.dart';
+import 'screens/bottom_nav_demo_screen.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'firebase_options.dart';
@@ -75,6 +76,7 @@ class MyApp extends StatelessWidget {
         '/crud': (_) => const CrudScreen(),
         '/provider_demo': (_) => const ProviderDemoScreen(),
         '/form_validation': (_) => const FormValidationScreen(),
+        '/bottom_nav': (_) => const BottomNavDemoScreen(),
       },
       debugShowCheckedModeBanner: false,
     );

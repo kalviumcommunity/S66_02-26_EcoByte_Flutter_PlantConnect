@@ -217,6 +217,13 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.menu_outlined),
+            tooltip: 'BottomNavigationBar Demo',
+            onPressed: () {
+              Navigator.of(context).pushNamed('/bottom_nav');
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.fact_check_outlined),
             tooltip: 'Form Validation',
             onPressed: () {
