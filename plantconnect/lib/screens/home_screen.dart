@@ -217,6 +217,13 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.hub_outlined),
+            tooltip: 'State Management (Provider)',
+            onPressed: () {
+              Navigator.of(context).pushNamed('/provider_demo');
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.list_alt),
             tooltip: 'My Items (CRUD)',
             onPressed: () {

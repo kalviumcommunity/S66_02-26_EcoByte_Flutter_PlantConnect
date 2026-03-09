@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import 'providers/counter_provider.dart';
+import 'providers/plant_favorites_provider.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/splash_screen.dart';
@@ -18,6 +21,7 @@ import 'screens/firestore_demo_screen.dart';
 import 'screens/notifications_demo_screen.dart';
 import 'screens/map_screen.dart';
 import 'screens/crud_screen.dart';
+import 'screens/provider_demo_screen.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'firebase_options.dart';
@@ -30,7 +34,15 @@ void main() async {
   // Initialize notifications
   await NotificationService().initialize();
   
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => CounterProvider()),
+        ChangeNotifierProvider(create: (_) => FavoritePlantsProvider()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -60,6 +72,7 @@ class MyApp extends StatelessWidget {
         '/notifications_demo': (_) => const NotificationsDemoScreen(),
         '/map': (_) => const MapScreen(),
         '/crud': (_) => const CrudScreen(),
+        '/provider_demo': (_) => const ProviderDemoScreen(),
       },
       debugShowCheckedModeBanner: false,
     );
